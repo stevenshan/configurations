@@ -1,0 +1,169 @@
+#!/bin/bash
+
+opencommand="pdfopen -r --viewer evince"
+compilecommand="xelatex -interaction batchmode"
+dir="/home/shans/Documents/LaTeX/"
+root_dir="/home/shans/Documents/scripts/latex"
+
+cd "$dir"
+
+if [ ! -f "workspace" ]; then
+	echo "Default" > workspace
+fi
+
+i="$1"
+
+workspace=$(cat workspace)
+
+if [ ! -d "$workspace" ]; then
+	echo "Default" > workspace
+	workspace="Default"
+	echo "Error: workspace did not exist. Switching to Default"
+fi
+
+if [ ! -d "Default" ]; then
+	mkdir "Default"
+fi
+
+cd "$workspace"
+
+if [ "$i" == "workspace" ]; then
+	cd ..
+	if [ "$2" == "create" ]; then
+		if [ ! -d "$3" ]; then
+			mkdir "$3"
+
+            if [ -f "template.tex" ]; then
+                cp template.tex "$3/template.tex"
+
+                # customize file for workspace
+                sed -i 's/#!subject_name!#/'$3'/g' "$3/template.tex"
+            fi
+
+			echo "$3" > workspace
+			echo "Created successfully"
+			cd "$3"
+		else
+			echo "Cannot create $2. Workspace already exists."
+		fi
+	elif [ "$2" == "list" ]; then
+		ls -1 -d */
+	elif [ "$2" == "change" ]; then
+		if [ ! -d "$3" ]; then
+			echo "Workspace does not exist"
+		else
+			echo "$3" > workspace
+			cd "$3"
+			echo "Changed workspaces successfully"
+		fi
+	elif [ "$2" == "delete" ]; then
+		if [ ! -d "$3" ]; then
+			echo "Workspace does not exist"
+		else
+			mv "$3" Trash	
+			echo "Deleted workspace. Changing to default workspace"
+			echo "Default" > workspace
+		fi
+	else
+		echo "Current workspace: $workspace"
+		echo ""
+		echo "List of options:"
+		echo "1.) list - list all workspaces"
+		echo "2.) create - create a new workspace"
+		echo "3.) change - change workspaces"
+		echo "4.) delete- delete a workspace"
+	fi
+elif [ "$i" == "create" ]; then
+	if [ ! -d "$2" ]; then
+		mkdir "$2"
+        if [ -f template.tex ]; then
+            cp template.tex "$2/$2.tex"
+        elif [ -f ../template.tex ]; then
+            cp ../template.tex "$2/$2.tex"
+        else
+            touch "$2/$2.tex"
+        fi 
+
+        num=$(find . -mindepth 1 -maxdepth 1 -type d | wc -l)
+        sed -i 's/#!auto_increment!#/'$num'/g' "$2/$2.tex"
+        
+		echo "Created successfully"
+	else
+		echo "Cannot create $2. Already exists."
+	fi
+elif [ "$i" == "delete" ]; then
+	if [ ! -d "$2" ]; then
+		echo "Cannot delete $2. Doesn't exist"
+	else
+		rm -rf "../Trash/$2"
+		mv "$2" ../Trash
+		echo "Deleted successfully"
+	fi	
+elif [ "$i" == "list" ]; then
+	ls -1 -d */
+elif [ "$i" == "preview" ]; then
+	if [ ! -d "$2" ]; then
+		echo "Project does not exist"
+	else
+		cd "$2"
+		find . | grep -E "(.*tex|.*cls)$"
+		find . | grep -E "(.*tex|.*cls)$" | entr sh -c "${root_dir}/latex work $2"
+	fi
+elif [ "$i" == "work" ]; then
+	if [ ! -d "$2" ]; then
+		echo "Project does not exist"
+	else
+		cd "$2"
+		$compilecommand "$2.tex"
+		$opencommand "$2.pdf"
+	fi
+elif [ "$i" == "view" ]; then
+	if [ ! -d "$2" ]; then
+		echo "Project does not exist"
+	else
+		cd "$2"
+		$compilecommand "$2.tex"
+		if [ ! -f "$2.pdf" ]; then
+			echo "File does not exist"
+		else
+			$opencommand "$2.pdf"
+		fi
+	fi
+elif [ "$i" == "edit" ]; then
+	if [ ! -d "$2" ]; then
+		echo "Project does not exist"
+	else
+		cd "$2"
+		vim "$2.tex"
+	fi
+elif [ "$i" == "make" ]; then
+	if [ ! -d "$2" ]; then
+		echo "Project does not exist"
+	else
+		cd "$2"
+		if [ ! -f "make" ]; then
+			echo "Make file does not exist"
+		else
+			./make "$3"
+		fi
+	fi
+elif [ "$i" == "git" ]; then
+    cd ..
+    git "${@:2}"
+else
+	echo "Current workspace: $workspace"
+	echo ""
+	echo "List of options:"
+	echo "1.) list - list all latex files"
+	echo "2.) create - create a new latex file"
+	echo "3.) delete - delete a latex file"
+	echo "4.) preview - start live preview"
+	echo "4.) view - view latex file"
+	echo "5.) edit - edit latex file"
+	echo "6.) workspace - workspace commands"
+	echo "7.) make - run make file for latex file"
+fi
+
+echo ""
+
+exit 0

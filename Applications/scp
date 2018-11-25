@@ -1,0 +1,72 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+
+sshcommand="/usr/bin/scp"
+EXPECT="password:"
+
+found=0
+index=1
+for var in "$@"; do
+    orighost="$var"
+    newhost="$(echo "$orighost" | grep -ohE ".*?:")"
+    if [ "$newhost" != "" ]; then
+        newhost="${newhost:0:-1}"
+    fi
+    hostloc="$(echo "$orighost" | grep -ohE ":.*")"
+    if [ "$hostloc" != "" ]; then
+        found=1
+        break
+    fi
+    index=$((index+1))
+done
+
+if [ "$found" = "0" ]; then
+    $sshcommand "$@"   
+    exit 0
+fi
+
+host="$newhost$hostloc"
+
+sshhost="$($DIR/__gethost__ "$newhost")"
+
+passwordIndex="$?"
+password=""
+
+if [ "$passwordIndex" != "0" ]; then
+    password="$($DIR/__getpassword__ $(($passwordIndex-1)))"
+    code="$?"
+
+    if [ "$code" != "0" ]; then
+        echo -e "\e[31m Could not get password.\e[m"
+    fi  
+fi
+
+fullname="$sshhost$hostloc"
+
+function showUsage() {
+    :
+}
+
+if [ "$passwordIndex" != "0" ] && [ "$password" != "" ]; then
+    opt=""${@:1:$((index-1))}" "$fullname" "${@:$((index))+1}""
+    expect -c "
+      set timeout $TIMEOUT
+      spawn env LANG=C $sshcommand $opt
+      expect {
+        timeout {exit 1}
+        \"$EXPECT\" {send \""$password"\n\"}
+      }
+      expect {
+        timeout {interact}
+        \"$EXPECT\" {exit 2}
+      }
+    "
+
+    case $? in
+      1) echo ""; echo -e "\e[31m[Timeout Error] Check connection or the expected string.\e[m"; showUsage 1;;
+      2) echo ""; echo -e "\e[31m[Password Error] Check the password.\e[m"; showUsage 1;;
+    esac
+else
+    $sshcommand "${@:1:$((index+1))}" "$fullname" "${@:$((index))+1}"
+fi

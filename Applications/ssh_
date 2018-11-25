@@ -1,0 +1,33 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+EXPECT="password:"
+
+sshcommand="/usr/bin/mosh"
+
+sshhost="$($DIR/__gethost__ "${@: -1}")"
+
+passwordIndex="$?"
+password=""
+
+if [ "$passwordIndex" != "0" ]; then
+    password="$($DIR/__getpassword__ $(($passwordIndex-1)))"
+    code="$?"
+
+    if [ "$code" != "0" ]; then
+        echo -e "\e[31m Could not get password \"sshpasswords\" from \"pass\" password manager.\e[m"
+    fi
+fi
+
+num=$#
+commandargs="${@:1:$((num-1))}"
+
+if [ "$passwordIndex" != "0" ] && [ "$password" != "" ]; then
+    sshpass -p "$password" "$sshcommand" $commandargs "$sshhost"
+else
+    if [ "$commandargs" == "" ]; then
+        "$sshcommand" "$sshhost"
+    else
+        "$sshcommand" "$commandargs" "$sshhost"
+    fi
+fi

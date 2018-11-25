@@ -1,0 +1,25 @@
+#!/bin/bash
+
+if [ "$1" != "" ]; then
+    arg="$1"
+    arghead="${1:0:-1}"
+    argtail="${1: -1}"
+else
+    echo "$1"
+    exit 0
+fi
+
+if [ "$arg" = "shark" ]; then
+    echo "$arg"
+    exit 1
+elif [ "$arg" = "andrew" ]; then
+    echo ".andrew"
+    exit 1
+elif [ "$arghead" = "andrew" ]; then
+    echo "${argtail}.andrew"
+    exit 1
+fi
+
+echo "$1"
+exit 0
+
