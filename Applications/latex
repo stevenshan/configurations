@@ -3,7 +3,8 @@
 opencommand="pdfopen -r --viewer evince"
 compilecommand="xelatex -interaction batchmode"
 dir="/home/shans/Documents/LaTeX/"
-root_dir="/home/shans/Documents/scripts/latex"
+
+self_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
 cd "$dir"
 
@@ -107,7 +108,7 @@ elif [ "$i" == "preview" ]; then
 	else
 		cd "$2"
 		find . | grep -E "(.*tex|.*cls)$"
-		find . | grep -E "(.*tex|.*cls)$" | entr sh -c "${root_dir}/latex work $2"
+		find . | grep -E "(.*tex|.*cls)$" | entr sh -c "${self_path} work $2"
 	fi
 elif [ "$i" == "work" ]; then
 	if [ ! -d "$2" ]; then
