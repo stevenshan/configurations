@@ -141,6 +141,9 @@ alias rmate="ssh -R 52698:localhost:52698"
 alias python='rlwrap python3.6'
 alias ssh=ssh_
 
+# fix weird vim thing with tmux
+export TERM=xterm-256color
+
 # add downloaded apps directory
 export PATH=${HOME}/Applications:$PATH
 export PYTHONPATH=${HOME}/Applications/liblinear/python:$PATH
