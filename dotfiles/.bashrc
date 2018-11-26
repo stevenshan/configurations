@@ -145,3 +145,4 @@ alias ssh=ssh_
 export PATH=${HOME}/Applications:$PATH
 export PYTHONPATH=${HOME}/Applications/liblinear/python:$PATH
 
+alias mlenv='sudo nvidia-docker run -it -p 8888:8888 --ipc=host ufoym/deepo:all-py36-jupyter'
