@@ -126,7 +126,7 @@ if [[ $TERM != linux && ! $PROMPT_COMMAND =~ _update_ps1 ]]; then
     PROMPT_COMMAND="_update_ps1; $PROMPT_COMMAND"
 fi
 
-# alias custom latex script 
+# alias custom latex script
 alias latex="$HOME/Applications/latex"
 
 # python virtual environment
@@ -148,4 +148,6 @@ export TERM=xterm-256color
 export PATH=${HOME}/Applications:$PATH
 export PYTHONPATH=${HOME}/Applications/liblinear/python:$PATH
 
-alias mlenv='(nvidia-docker start mlenv || nvidia-docker run -it -p 8888:8888 --ipc=host --name=mlenv -d ufoym/deepo:all-py36-jupyter) && nvidia-docker exec -it mlenv'
+alias mlenv="(nvidia-docker start mlenv ||
+              nvidia-docker run -it -p 8888:8888 --ipc=host --name=mlenv -v ${HOME}/Documents/docker_volumes/mlenv:/root -d ufoym/deepo:all-py36-jupyter) &&
+             nvidia-docker exec -it mlenv"

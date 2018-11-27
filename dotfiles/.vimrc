@@ -39,7 +39,7 @@ set nostartofline "Vertical movement preserves horizontal position
 
 " Use jk for escape
 inoremap jk <esc>
-inoremap <esc> <nop>
+"inoremap <esc> <nop>
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " Vundle Stuff
