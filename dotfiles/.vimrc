@@ -8,6 +8,7 @@ set equalalways " split windows equal size
 set expandtab
 set tabstop=4
 set shiftwidth=4
+set smarttab
 
 syntax on " syntax highlighting
 

@@ -61,7 +61,7 @@ if [ "$i" == "workspace" ]; then
 		if [ ! -d "$3" ]; then
 			echo "Workspace does not exist"
 		else
-			mv "$3" Trash	
+			mv "$3" Trash
 			echo "Deleted workspace. Changing to default workspace"
 			echo "Default" > workspace
 		fi
@@ -83,11 +83,11 @@ elif [ "$i" == "create" ]; then
             cp ../template.tex "$2/$2.tex"
         else
             touch "$2/$2.tex"
-        fi 
+        fi
 
         num=$(find . -mindepth 1 -maxdepth 1 -type d | wc -l)
         sed -i 's/#!auto_increment!#/'$num'/g' "$2/$2.tex"
-        
+
 		echo "Created successfully"
 	else
 		echo "Cannot create $2. Already exists."
@@ -99,15 +99,15 @@ elif [ "$i" == "delete" ]; then
 		rm -rf "../Trash/$2"
 		mv "$2" ../Trash
 		echo "Deleted successfully"
-	fi	
+	fi
 elif [ "$i" == "list" ]; then
 	ls -1 -d */
 elif [ "$i" == "preview" ]; then
+    echo "previewing"
 	if [ ! -d "$2" ]; then
 		echo "Project does not exist"
 	else
 		cd "$2"
-		find . | grep -E "(.*tex|.*cls)$"
 		find . | grep -E "(.*tex|.*cls)$" | entr sh -c "${self_path} work $2"
 	fi
 elif [ "$i" == "work" ]; then
