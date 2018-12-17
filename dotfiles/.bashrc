@@ -142,7 +142,7 @@ alias ssh=ssh_
 export TERM=xterm-256color
 
 # add downloaded apps directory
-source ${HOME}/Applications/config
+source ${HOME}/configurations/Applications/config
 
 export GOPATH=${HOME}/go
 export PATH=${GOPATH}/bin:$PATH
