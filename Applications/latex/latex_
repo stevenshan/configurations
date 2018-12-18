@@ -103,7 +103,6 @@ elif [ "$i" == "delete" ]; then
 elif [ "$i" == "list" ]; then
 	ls -1 -d */
 elif [ "$i" == "preview" ]; then
-    echo "previewing"
 	if [ ! -d "$2" ]; then
 		echo "Project does not exist"
 	else

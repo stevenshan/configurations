@@ -5,10 +5,10 @@ all: latex
 
 latex: latex.o linked_list.o
 
-latex.o: latex.c
+latex.o: latex.c latex.h
 	$(CC) $(CFLAGS) -c latex.c
 
-linked_list.o: linked_list.c linked_list.h
+linked_list.o: linked_list.c linked_list.h latex.h
 	$(CC) $(CFLAGS) -c linked_list.c
 
 clean:

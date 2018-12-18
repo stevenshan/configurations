@@ -3,11 +3,14 @@
 #include "linked_list.h"
 
 static void init_dummy_node(node *n) {
+    n->i = -1;
     n->id = -1;
-    n->key = NULL;
-    n->value = NULL;
     n->next = NULL;
     n->prev = NULL;
+
+    for (size_t i = 0; i < BUFFER_LEN; i++) {
+        n->key[i] = '\0';
+    }
 }
 
 linked_list *new_linked_list() {
@@ -16,12 +19,32 @@ linked_list *new_linked_list() {
         return NULL;
     }
 
-    linked_list *result = (linked_list*)temp;
-    result->head = (node*)(temp + sizeof(linked_list));
-    result->tail = (node*)(result->head + 1);
+    linked_list *result = malloc(sizeof(linked_list));
+
+    if (result == NULL) {
+        return NULL;
+    }
+
+    result->head = malloc(sizeof(node));
+
+    if (result->head == NULL) {
+        free(result);
+        return NULL;
+    }
+
+    result->tail = malloc(sizeof(node));
+
+    if (result->tail == NULL) {
+        free(result->head);
+        free(result);
+        return NULL;
+    }
 
     init_dummy_node(result->head);
     init_dummy_node(result->tail);
+
+    result->head->next = result->tail;
+    result->tail->prev = result->head;
 
     return result;
 }
@@ -40,19 +63,24 @@ void destroy_linked_list(linked_list *L) {
         return;
     }
 
-    for (node *iter = L->head; iter != NULL; iter = free_get_next(iter)) {
-        if (iter->key != NULL) {
-            free(iter->key);
-        }
-        if (iter->value != NULL) {
-            free(iter->value);
-        }
-    }
+    for (node *iter = L->head; iter != NULL; iter = free_get_next(iter));
 
     free(L);
 }
 
-int add_node(linked_list *L, int id, char *key, void *value) {
+size_t linked_list_len(linked_list *L) {
+    size_t len = 0;
+    for (node *iter = L->head; iter != NULL; iter = iter->next) {
+        len += 1;
+    }
+    return len - 2;
+}
+
+int add_node(linked_list *L, int i, int id, const char *key) {
+    if (L == NULL) {
+        return 1;
+    }
+
     node *new_node = malloc(sizeof(node));
     if (new_node == NULL) {
         return 1;
@@ -60,9 +88,12 @@ int add_node(linked_list *L, int id, char *key, void *value) {
     init_dummy_node(new_node);
 
     node *head = L->head;
+    head->i = i;
     head->id = id;
-    head->key = key;
-    head->value = value;
+    if (key != NULL) {
+        strncpy(head->key, key, BUFFER_LEN);
+    }
+
     head->prev = new_node;
 
     new_node->next = head;
@@ -84,31 +115,74 @@ static void remove_node(node *n) {
     }
 }
 
-void *delete_node_id(linked_list *L, int id) {
-    for (node *iter = L->head; iter != NULL; iter = iter->next) {
-        if (iter->id == id) {
-            if (iter->key != NULL) {
-                free(iter->key);
-            }
-            remove_node(iter);
-            return iter->value;
-        }
+static void copy_node(node *dest, const node *src) {
+    if (dest == NULL || src == NULL) {
+        return;
     }
-    return NULL;
+
+    dest->i = src->i;
+    dest->id = src->id;
+    for (size_t i = 0; i < BUFFER_LEN; i++) {
+        dest->key[i] = src->key[i];
+    }
 }
 
-void *delete_node_key(linked_list *L, char *key) {
-    if (key == NULL) {
-        return NULL;
+bool delete_node_id(linked_list *L, int id, node *result) {
+    for (node *iter = L->head; iter != NULL; iter = iter->next) {
+        if (iter->id == id) {
+            remove_node(iter);
+            free(iter);
+
+            copy_node(result, iter);
+
+            return true;
+        }
+    }
+    return false;
+}
+
+void map_list(linked_list *L, map_func_t *func) {
+    if (L == NULL) {
+        return;
     }
 
     for (node *iter = L->head; iter != NULL; iter = iter->next) {
-        if (iter->key != NULL && strcmp(key, iter->key) == 0) {
-            if (iter->key != NULL) {
-                free(iter->key);
-            }
-            remove_node(iter);
-            return iter->value;
+        if (iter->id != -1) {
+            func(iter->i, iter->id, iter->key);
+        }
+    }
+}
+
+bool id_in_linked_list(linked_list *L, int id) {
+    if (L == NULL) {
+        return false;
+    }
+
+    for (node *iter = L->head; iter != NULL; iter = iter->next) {
+        if (iter->id == id) {
+            return true;
+        }
+    }
+    return false;
+}
+
+node reduce_list(linked_list *L, reduce_func_t *func, node base) {
+    node acc = base;
+    if (L == NULL) {
+        return acc;
+    }
+
+    for (node *iter = L->head->next; iter != L->tail; iter = iter->next) {
+        acc = func(*iter, acc);
+    }
+
+    return acc;
+}
+
+node *find_i(linked_list *L, int i) {
+    for (node *iter = L->head; iter != NULL; iter = iter->next) {
+        if (iter->i == i) {
+            return iter;
         }
     }
     return NULL;
