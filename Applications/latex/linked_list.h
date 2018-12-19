@@ -12,11 +12,15 @@ struct node_t {
     char key[BUFFER_LEN];
     node *next;
     node *prev;
+
+    size_t access_time;
 };
 
 typedef struct linked_list_t {
     node *head;
     node *tail;
+
+    size_t time;
 } linked_list;
 
 linked_list *new_linked_list();
@@ -35,5 +39,7 @@ typedef node reduce_func_t(node, node);
 node reduce_list(linked_list *L, reduce_func_t *func, node base);
 
 node *find_i(linked_list *L, int i);
+
+node *get_recently_accessed(linked_list *L);
 
 #endif

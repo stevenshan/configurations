@@ -7,10 +7,16 @@ static void init_dummy_node(node *n) {
     n->id = -1;
     n->next = NULL;
     n->prev = NULL;
+    n->access_time = 0;
 
     for (size_t i = 0; i < BUFFER_LEN; i++) {
         n->key[i] = '\0';
     }
+}
+
+static void accessed(linked_list *L, node *n) {
+    L->time += 1;
+    n->access_time = L->time;
 }
 
 linked_list *new_linked_list() {
@@ -93,8 +99,10 @@ int add_node(linked_list *L, int i, int id, const char *key) {
     if (key != NULL) {
         strncpy(head->key, key, BUFFER_LEN);
     }
-
+    // head->next should already be set
     head->prev = new_node;
+
+    accessed(L, head);
 
     new_node->next = head;
     L->head = new_node;
@@ -160,6 +168,7 @@ bool id_in_linked_list(linked_list *L, int id) {
 
     for (node *iter = L->head; iter != NULL; iter = iter->next) {
         if (iter->id == id) {
+            accessed(L, iter);
             return true;
         }
     }
@@ -182,8 +191,28 @@ node reduce_list(linked_list *L, reduce_func_t *func, node base) {
 node *find_i(linked_list *L, int i) {
     for (node *iter = L->head; iter != NULL; iter = iter->next) {
         if (iter->i == i) {
+            accessed(L, iter);
             return iter;
         }
     }
     return NULL;
 }
+
+node *get_recently_accessed(linked_list *L) {
+    node *most_recent = NULL;
+    size_t time = 0;
+
+    if (L == NULL) {
+        return most_recent;
+    }
+
+    for (node *iter = L->head->next; iter != L->tail; iter = iter->next) {
+        if (iter->access_time >= time) {
+            time = iter->access_time;
+            most_recent = iter;
+        }
+    }
+
+    return most_recent;
+}
+

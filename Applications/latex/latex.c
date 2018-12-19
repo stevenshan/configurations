@@ -288,16 +288,19 @@ static void exec_command(char* buffer) {
         return;
     } else if (streq(command, "fg")) {
         int arg;
+        node *pnode;
         if (str_to_pid(cmd[2], &arg)) {
             if (id_in_linked_list(jobs, arg)) {
                 kill(-arg, SIGCONT);
-
                 set_fg_process(arg);
             } else {
                 printf("%s: no such job\n", command_line);
             }
+        } else if ((pnode = get_recently_accessed(jobs)) != NULL) {
+            kill(-pnode->id, SIGCONT);
+            set_fg_process(pnode->id);
         } else {
-            printf("Usage: fg [pid]\n");
+            printf("Usage: fg [pid] [%%jid]\n");
         }
 
         sigprocmask(SIG_SETMASK, &prev, NULL);
@@ -462,7 +465,7 @@ static void cleanup_pid(int i, int pid, char *key) {
 
 static void cleanup() {
     map_list(jobs, &cleanup_pid);
-    while (waitpid(-1, &temp, 0) > 0);
+    while (waitpid(-1, NULL, 0) > 0);
 
     close(original_stdout);
     reset_signal_handlers();
