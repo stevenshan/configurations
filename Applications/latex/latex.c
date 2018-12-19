@@ -456,13 +456,16 @@ static void sigtstp_handler(int sig) {
 }
 
 static void cleanup_pid(int i, int pid, char *key) {
-    kill(-pid, SIGKILL);
+    kill(-pid, SIGCONT);
+    kill(-pid, SIGTERM);
 }
 
 static void cleanup() {
+    map_list(jobs, &cleanup_pid);
+    while (waitpid(-1, &temp, 0) > 0);
+
     close(original_stdout);
     reset_signal_handlers();
-    map_list(jobs, &cleanup_pid);
     destroy_linked_list(jobs);
     reset_terminal_settings();
 }
