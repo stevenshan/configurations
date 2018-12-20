@@ -149,7 +149,7 @@ bool delete_node_id(linked_list *L, int id, node *result) {
     return false;
 }
 
-void map_list(linked_list *L, map_func_t *func) {
+void map_list(linked_list *L, map_func_f *func) {
     if (L == NULL) {
         return;
     }
@@ -175,7 +175,7 @@ bool id_in_linked_list(linked_list *L, int id) {
     return false;
 }
 
-node reduce_list(linked_list *L, reduce_func_t *func, node base) {
+node reduce_list(linked_list *L, reduce_func_f *func, node base) {
     node acc = base;
     if (L == NULL) {
         return acc;
@@ -191,6 +191,16 @@ node reduce_list(linked_list *L, reduce_func_t *func, node base) {
 node *find_i(linked_list *L, int i) {
     for (node *iter = L->head; iter != NULL; iter = iter->next) {
         if (iter->i == i) {
+            accessed(L, iter);
+            return iter;
+        }
+    }
+    return NULL;
+}
+
+node *find_id(linked_list *L, int id) {
+    for (node *iter = L->head; iter != NULL; iter = iter->next) {
+        if (iter->id == id) {
             accessed(L, iter);
             return iter;
         }

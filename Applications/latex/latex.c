@@ -17,6 +17,7 @@
 #include <termios.h>
 
 #include "linked_list.h"
+#include "circular_buffer.h"
 #include "latex.h"
 
 #define PROMPT_COLOR "60"
@@ -28,6 +29,7 @@ static char latex_call[BUFFER_LEN] = {0};
 static linked_list *jobs = NULL;
 static pid_t fg_pid = 0;
 static int job_id = 0;
+static circular_buffer cmd_history;
 
 typedef void handler_t(int);
 static void sigchld_handler(int sig);
@@ -269,6 +271,7 @@ static void exec_command(char* buffer) {
 
     char command_line[BUFFER_LEN];
     strncpy(command_line,  buffer, BUFFER_LEN);
+    add_to_cbuff(&cmd_history, command_line);
 
     char *cmd[BUFFER_LEN] = {NULL};
     size_t num_arguments;
@@ -377,6 +380,8 @@ int main(int argc, char *argv[]) {
     Signal(SIGTTOU, SIG_IGN);
     Signal(SIGTTIN, SIG_IGN);
 
+    cmd_history = new_circular_buffer();
+
     char buffer[BUFFER_LEN];
     while (true) {
         // get workspace name
@@ -440,6 +445,12 @@ static void sigchld_handler(int sig) {
             acc.i = 0;
             acc = reduce_list(jobs, &max_node, acc);
             job_id = acc.i;
+        } else {
+            node *pnode;
+            if ((pnode = find_id(jobs, pid)) != NULL) {
+                printf("Job [%d] (%d) '%s' stopped.\n",
+                       pnode->i, pnode->id, pnode->key);
+            }
         }
 
         if (!fg_pid) {
