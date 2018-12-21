@@ -3,6 +3,7 @@
 opencommand="pdfopen -r --viewer evince"
 compilecommand="xelatex -interaction batchmode"
 dir="/home/shans/Documents/LaTeX/"
+vim="/home/shans/Downloads/vim/src/vim"
 
 self_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
@@ -134,7 +135,7 @@ elif [ "$i" == "edit" ]; then
 		echo "Project does not exist"
 	else
 		cd "$2"
-		vim "$2.tex"
+		$vim "$2.tex"
 	fi
 elif [ "$i" == "make" ]; then
 	if [ ! -d "$2" ]; then

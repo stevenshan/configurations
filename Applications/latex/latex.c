@@ -210,9 +210,10 @@ static bool str_to_pid(char* str, int *value) {
 
         node *n = find_i(jobs, *value);
         if (n == NULL) {
-            return false;
+            *value = 0;
+        } else {
+            *value = n->id;
         }
-        *value = n->id;
         return true;
     }
 
