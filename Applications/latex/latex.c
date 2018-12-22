@@ -309,6 +309,20 @@ static void exec_command(char* buffer) {
 
         sigprocmask(SIG_SETMASK, &prev, NULL);
         return;
+    } else if (streq(command, "kill")) {
+        int arg;
+        if (str_to_pid(cmd[2], &arg)) {
+             if (id_in_linked_list(jobs, arg)) {
+                kill(-arg, SIGTERM);
+            } else {
+                printf("%s: no such job\n", command_line);
+             }
+        } else {
+            printf("Usage: kill [pid]\n");
+        }
+
+        sigprocmask(SIG_SETMASK, &prev, NULL);
+        return;
     }
 
     pid_t pid = fork();
@@ -449,7 +463,7 @@ static void sigchld_handler(int sig) {
         } else {
             node *pnode;
             if ((pnode = find_id(jobs, pid)) != NULL) {
-                printf("Job [%d] (%d) '%s' stopped.\n",
+                printf("\nJob [%d] (%d) '%s' stopped.\n",
                        pnode->i, pnode->id, pnode->key);
             }
         }
