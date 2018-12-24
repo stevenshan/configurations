@@ -3,7 +3,7 @@
 opencommand="pdfopen -r --viewer evince"
 compilecommand="xelatex -interaction batchmode"
 dir="/home/shans/Documents/LaTeX/"
-vim="/home/shans/Downloads/vim/src/vim"
+vim="vim"
 
 self_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
@@ -151,7 +151,7 @@ elif [ "$i" == "make" ]; then
 elif [ "$i" == "git" ]; then
     cd ..
     git "${@:2}"
-else
+elif [ "$i" == "help" ]; then
 	echo "Current workspace: $workspace"
 	echo ""
 	echo "List of options:"
@@ -163,6 +163,8 @@ else
 	echo "5.) edit - edit latex file"
 	echo "6.) workspace - workspace commands"
 	echo "7.) make - run make file for latex file"
+else
+    $@
 fi
 
 echo ""

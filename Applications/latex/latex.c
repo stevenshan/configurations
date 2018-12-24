@@ -320,7 +320,7 @@ static void exec_command(char* buffer) {
                 printf("%s: no such job\n", command_line);
              }
         } else {
-            printf("Usage: kill [pid]\n");
+            printf("Usage: kill [pid] [%%jid]\n");
         }
 
         sigprocmask(SIG_SETMASK, &prev, NULL);
