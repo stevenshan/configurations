@@ -1,5 +1,6 @@
 CC = gcc
 CFLAGS = -g -Og -Wall -std=c99
+LDLIBS=-lreadline
 
 all: latex
 

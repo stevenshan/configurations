@@ -16,6 +16,9 @@
 #include <errno.h>
 #include <termios.h>
 
+#include <readline/readline.h>
+#include <readline/history.h>
+
 #include "linked_list.h"
 #include "circular_buffer.h"
 #include "latex.h"
@@ -68,19 +71,18 @@ static void reset_signal_handlers() {
 }
 
 static void reset_terminal_settings() {
-    tcsetpgrp(STDIN_FILENO, getpid());
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &terminal_settings);
+    tcsetpgrp(STDIN_FILENO, getpid());
     clearerr(stdin);
 }
 
-static void print_prompt(const char* fmt, ...) {
+static void get_prompt(char *buffer, char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
 
-    char buffer[BUFFER_LEN];
-    vsnprintf(buffer, BUFFER_LEN, fmt, args);
-    printf(PROMPT_FORMAT, buffer);
-    fflush(stdout);
+    char temp[BUFFER_LEN];
+    vsnprintf(temp, BUFFER_LEN, fmt, args);
+    snprintf(buffer, BUFFER_LEN, PROMPT_FORMAT, temp);
 
     va_end(args);
 }
@@ -398,6 +400,7 @@ int main(int argc, char *argv[]) {
     cmd_history = new_circular_buffer();
 
     char buffer[BUFFER_LEN];
+    char *cmd_buffer = NULL;
     while (true) {
         // get workspace name
         if (get_workspace(buffer)) {
@@ -405,26 +408,22 @@ int main(int argc, char *argv[]) {
             return 0;
         }
 
-        print_prompt(buffer);
+        get_prompt(buffer, buffer);
+        cmd_buffer = readline(buffer);
+        add_history(cmd_buffer);
 
-        bool read_error = (fgets(buffer, BUFFER_LEN, stdin) == NULL) &&
-                           ferror(stdin);
-
-        if (feof(stdin)) {
-            // control-d
+        if (cmd_buffer == NULL) {
             printf("\n");
             return 0;
-        }
-
-        if (read_error) {
-            print_error("Can't read from standard input.");
         } else {
             // remove trailing newline character
-            if (strlen(buffer) > 0 && buffer[strlen(buffer) - 1] == '\n') {
-                buffer[strlen(buffer) - 1] = '\0';
+            if (strlen(cmd_buffer) > 0 && cmd_buffer[strlen(buffer) - 1] == '\n') {
+                cmd_buffer[strlen(cmd_buffer) - 1] = '\0';
             }
 
-            exec_command(buffer);
+            exec_command(cmd_buffer);
+
+            free(cmd_buffer);
         }
     }
 }
