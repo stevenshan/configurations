@@ -43,6 +43,13 @@ const char* PROMPT_FORMAT = "\033[48;5;" PROMPT_COLOR "m %s \033[0m ";
 const char* ERROR_FORMAT = "\033[31mError: %s\033[0m\n";
 const char* WARNING_FORMAT = "\033[31m%s\033[0m\n";
 
+typedef struct exec_package_t {
+    char *command_line;
+    char *command;
+    char **cmd;
+    sigset_t prev;
+} exec_package;
+
 static sigset_t get_sig_mask() {
     sigset_t mask;
     sigemptyset(&mask);
@@ -269,6 +276,75 @@ static int set_fg_process(pid_t pid) {
     return last_exit_status;
 }
 
+static int run_fg_process(exec_package pack) {
+    if (streq(pack.command, "exit")) {
+        exit(0);
+    } else if (streq(pack.command, "jobs")) {
+        print_jobs();
+    } else if (streq(pack.command, "fg")) {
+        int arg;
+        node *pnode;
+        if (str_to_pid(pack.cmd[2], &arg)) {
+            if (id_in_linked_list(jobs, arg)) {
+                kill(-arg, SIGCONT);
+                set_fg_process(arg);
+            } else {
+                printf("%s: no such job\n", pack.command_line);
+            }
+        } else if ((pnode = get_recently_accessed(jobs)) != NULL) {
+            kill(-pnode->id, SIGCONT);
+            set_fg_process(pnode->id);
+        } else {
+            printf("Usage: fg [pid] [%%jid]\n");
+        }
+    } else if (streq(pack.command, "kill")) {
+        int arg;
+        if (str_to_pid(pack.cmd[2], &arg)) {
+             if (id_in_linked_list(jobs, arg)) {
+                kill(-arg, SIGTERM);
+            } else {
+                printf("%s: no such job\n", pack.command_line);
+             }
+        } else {
+            printf("Usage: kill [pid] [%%jid]\n");
+        }
+    } else {
+        return 0;
+    }
+
+    return 1;
+}
+
+static int start_process(exec_package pack) {
+    pid_t pid = fork();
+    if (pid == -1) {
+        print_error("Couldn't fork process.");
+    } else if (pid == 0) {
+        // child process
+        setpgid(0, 0);
+
+        reset_signal_handlers();
+        sigprocmask(SIG_SETMASK, &(pack.prev), NULL);
+
+        execve(pack.cmd[0], pack.cmd, environ);
+
+        exit(0);
+    } else {
+        // parent process
+        job_id += 1;
+        add_node(jobs, job_id, pid, pack.command_line);
+
+        int status = set_fg_process(pid);
+
+        sigprocmask(SIG_SETMASK, &(pack.prev), NULL);
+
+        return status;
+    }
+
+    // unreachable
+    return 0;
+}
+
 static void exec_command(char* buffer) {
     char command[BUFFER_LEN];
 
@@ -290,74 +366,21 @@ static void exec_command(char* buffer) {
     mask = get_sig_mask();
     sigprocmask(SIG_BLOCK, &mask, &prev);
 
-    if (streq(command, "exit")) {
-        exit(0);
-    } else if (streq(command, "jobs")) {
-        print_jobs();
+    exec_package pack;
+    pack.command = command;
+    pack.command_line = command_line;
+    pack.cmd = cmd;
+    pack.prev = prev;
 
-        sigprocmask(SIG_SETMASK, &prev, NULL);
-        return;
-    } else if (streq(command, "fg")) {
-        int arg;
-        node *pnode;
-        if (str_to_pid(cmd[2], &arg)) {
-            if (id_in_linked_list(jobs, arg)) {
-                kill(-arg, SIGCONT);
-                set_fg_process(arg);
-            } else {
-                printf("%s: no such job\n", command_line);
-            }
-        } else if ((pnode = get_recently_accessed(jobs)) != NULL) {
-            kill(-pnode->id, SIGCONT);
-            set_fg_process(pnode->id);
-        } else {
-            printf("Usage: fg [pid] [%%jid]\n");
-        }
-
-        sigprocmask(SIG_SETMASK, &prev, NULL);
-        return;
-    } else if (streq(command, "kill")) {
-        int arg;
-        if (str_to_pid(cmd[2], &arg)) {
-             if (id_in_linked_list(jobs, arg)) {
-                kill(-arg, SIGTERM);
-            } else {
-                printf("%s: no such job\n", command_line);
-             }
-        } else {
-            printf("Usage: kill [pid] [%%jid]\n");
-        }
-
+    if (run_fg_process(pack)) {
         sigprocmask(SIG_SETMASK, &prev, NULL);
         return;
     }
 
-    pid_t pid = fork();
-    if (pid == -1) {
-        print_error("Couldn't fork process.");
-    } else if (pid == 0) {
-        // child process
-        setpgid(0, 0);
-
-        reset_signal_handlers();
-        sigprocmask(SIG_SETMASK, &prev, NULL);
-
-        execve(cmd[0], cmd, environ);
-
-        exit(0);
-    } else {
-        // parent process
-        job_id += 1;
-        add_node(jobs, job_id, pid, command_line);
-
-        int status = set_fg_process(pid);
-
-        if (status > 0) {
-            print_error("%s: command not found", command_line);
-        }
-
-        sigprocmask(SIG_SETMASK, &prev, NULL);
+    if (start_process(pack) > 0) {
+        print_error("command not found");
     }
+
 }
 
 int main(int argc, char *argv[]) {
@@ -422,16 +445,16 @@ int main(int argc, char *argv[]) {
         if (cmd_buffer == NULL) {
             printf("\n");
             return 0;
-        } else {
-            // remove trailing newline character
-            if (strlen(cmd_buffer) > 0 && cmd_buffer[strlen(buffer) - 1] == '\n') {
-                cmd_buffer[strlen(cmd_buffer) - 1] = '\0';
-            }
-
-            exec_command(cmd_buffer);
-
-            free(cmd_buffer);
         }
+
+        // remove trailing newline character
+        if (strlen(cmd_buffer) > 0 && cmd_buffer[strlen(buffer) - 1] == '\n') {
+            cmd_buffer[strlen(cmd_buffer) - 1] = '\0';
+        }
+
+        exec_command(cmd_buffer);
+
+        free(cmd_buffer);
     }
 }
 

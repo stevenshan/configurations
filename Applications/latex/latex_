@@ -8,6 +8,11 @@ vim="vim"
 self_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
 cd "$dir"
+orig_wd=$(pwd)
+
+function reset_wd {
+    cd $orig_wd
+}
 
 if [ ! -f "workspace" ]; then
 	echo "Default" > workspace
@@ -165,9 +170,13 @@ elif [ "$i" == "help" ]; then
 	echo "7.) make - run make file for latex file"
 	echo "8.) git - version control stuff"
 else
+    reset_wd
+    $@
     exit 1
 fi
 
 echo ""
+
+echo $orig_wd
 
 exit 0
