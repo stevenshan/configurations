@@ -34,10 +34,6 @@ static int job_id = 0;
 static int last_exit_status = -1;
 
 typedef void handler_t(int);
-static void sigchld_handler(int sig);
-static void sigint_handler(int sig);
-static void sigtstp_handler(int sig);
-static void cleanup();
 
 const char* PROMPT_FORMAT = "\033[48;5;" PROMPT_COLOR "m %s \033[0m ";
 const char* ERROR_FORMAT = "\033[31mError: %s\033[0m\n";
@@ -383,81 +379,6 @@ static void exec_command(char* buffer) {
 
 }
 
-int main(int argc, char *argv[]) {
-
-    extern char *optarg;
-
-    bool help = false;
-
-    char opt;
-    while ((opt = getopt(argc, argv, "hc:")) != -1) {
-        switch (opt) {
-        case 'h':
-            help = true;
-            break;
-        case 'c':
-            strncpy(latex_call, optarg, BUFFER_LEN - 1);
-            latex_call[strlen(optarg)] = '\0';
-            break;
-        }
-    }
-
-    if (help || argc == 1) {
-        printf("usage: latex -c absolute_path_to_latex_bash_script "
-               "[-r command_to_run]\n");
-        return 0;
-    } else if (strlen(latex_call) == 0) {
-        print_error("No latex script given. See usage.");
-        return 1;
-    } else if ((jobs = new_linked_list()) == NULL) {
-        print_error("Could not initialize job list.");
-        return 1;
-    } else if (atexit(cleanup) < 0) {
-        print_error("Couldn't register cleanup function.");
-        return 1;
-    } else if ((original_stdout = dup(STDOUT_FILENO)) < 0) {
-        print_error("Couldn't duplicate original stdout file descriptor.");
-        return 1;
-    } else if (tcgetattr(STDIN_FILENO, &terminal_settings)) {
-        print_error("Couldn't get terminal settings.");
-        return 1;
-    }
-
-    Signal(SIGCHLD, sigchld_handler);
-    Signal(SIGINT, sigint_handler);
-    Signal(SIGTSTP, sigtstp_handler);
-    Signal(SIGTTOU, SIG_IGN);
-    Signal(SIGTTIN, SIG_IGN);
-
-    char buffer[BUFFER_LEN];
-    char *cmd_buffer = NULL;
-    while (true) {
-        // get workspace name
-        if (get_workspace(buffer)) {
-            print_error("Could not get workspace name.");
-            return 0;
-        }
-
-        get_prompt(buffer, buffer);
-        cmd_buffer = readline(buffer);
-        add_history(cmd_buffer);
-
-        if (cmd_buffer == NULL) {
-            printf("\n");
-            return 0;
-        }
-
-        // remove trailing newline character
-        if (strlen(cmd_buffer) > 0 && cmd_buffer[strlen(buffer) - 1] == '\n') {
-            cmd_buffer[strlen(cmd_buffer) - 1] = '\0';
-        }
-
-        exec_command(cmd_buffer);
-
-        free(cmd_buffer);
-    }
-}
-
 static node max_node(node n1, node n2) {
     node result;
     result.i = n1.i > n2.i ? n1.i : n2.i;
@@ -531,3 +452,87 @@ static void cleanup() {
     destroy_linked_list(jobs);
     reset_terminal_settings();
 }
+
+static void init(int argc, char **argv) {
+    extern char *optarg;
+
+    bool help = false;
+
+    char opt;
+    while ((opt = getopt(argc, argv, "hc:")) != -1) {
+        switch (opt) {
+        case 'h':
+            help = true;
+            break;
+        case 'c':
+            strncpy(latex_call, optarg, BUFFER_LEN - 1);
+            latex_call[strlen(optarg)] = '\0';
+            break;
+        }
+    }
+
+    if (help || argc == 1) {
+        printf("usage: latex -c absolute_path_to_latex_bash_script "
+               "[-r command_to_run]\n");
+        exit(0);
+    } else if (strlen(latex_call) == 0) {
+        print_error("No latex script given. See usage.");
+        exit(1);
+    } else if ((jobs = new_linked_list()) == NULL) {
+        print_error("Could not initialize job list.");
+        exit(1);
+    } else if (atexit(cleanup) < 0) {
+        print_error("Couldn't register cleanup function.");
+        exit(1);
+    } else if ((original_stdout = dup(STDOUT_FILENO)) < 0) {
+        print_error("Couldn't duplicate original stdout file descriptor.");
+        exit(1);
+    } else if (tcgetattr(STDIN_FILENO, &terminal_settings)) {
+        print_error("Couldn't get terminal settings.");
+        exit(1);
+    }
+
+    Signal(SIGCHLD, sigchld_handler);
+    Signal(SIGINT, sigint_handler);
+    Signal(SIGTSTP, sigtstp_handler);
+    Signal(SIGTTOU, SIG_IGN);
+    Signal(SIGTTIN, SIG_IGN);
+
+}
+
+static void main_loop() {
+    char buffer[BUFFER_LEN];
+    char *cmd_buffer = NULL;
+    while (true) {
+        // get workspace name
+        if (get_workspace(buffer)) {
+            print_error("Could not get workspace name.");
+            return;
+        }
+
+        get_prompt(buffer, buffer);
+        cmd_buffer = readline(buffer);
+        add_history(cmd_buffer);
+
+        if (cmd_buffer == NULL) {
+            printf("\n");
+            return;
+        }
+
+        // remove trailing newline character
+        if (strlen(cmd_buffer) > 0 &&
+                cmd_buffer[strlen(buffer) - 1] == '\n') {
+            cmd_buffer[strlen(cmd_buffer) - 1] = '\0';
+        }
+
+        exec_command(cmd_buffer);
+
+        free(cmd_buffer);
+    }
+}
+
+int main(int argc, char *argv[]) {
+    init(argc, argv);
+    main_loop();
+}
+
