@@ -31,6 +31,7 @@ static char latex_call[BUFFER_LEN] = {0};
 static linked_list *jobs = NULL;
 static pid_t fg_pid = 0;
 static int job_id = 0;
+static int last_exit_status = -1;
 
 typedef void handler_t(int);
 static void sigchld_handler(int sig);
@@ -38,8 +39,7 @@ static void sigint_handler(int sig);
 static void sigtstp_handler(int sig);
 static void cleanup();
 
-const char* PROMPT_FORMAT = "\033[48;5;" PROMPT_COLOR "m %s \033[0m"
-                         "\033[38;5;" PROMPT_COLOR "m\ue0b0\033[0m ";
+const char* PROMPT_FORMAT = "\033[48;5;" PROMPT_COLOR "m %s \033[0m ";
 const char* ERROR_FORMAT = "\033[31mError: %s\033[0m\n";
 const char* WARNING_FORMAT = "\033[31m%s\033[0m\n";
 
@@ -97,7 +97,7 @@ static void print_error(const char* fmt, ...) {
     va_end(args);
 }
 
-static int exec_latex_call(char *buffer, size_t n, char **args) {
+static int exec_get_stdout(char *buffer, size_t n, char **args) {
     int fd[2];
     if (pipe(fd)) {
         return 1;
@@ -156,7 +156,7 @@ static int get_workspace(char *buffer) {
         latex_call, "workspace", NULL
     };
 
-    int result = exec_latex_call(buffer, BUFFER_LEN, cmd_line);
+    int result = exec_get_stdout(buffer, BUFFER_LEN, cmd_line);
     return result || sscanf(buffer, "Current workspace: %s", buffer) != 1;
 }
 
@@ -246,10 +246,12 @@ static bool streq(const char *s1, const char *s2) {
     return !strcmp(s1, s2);
 }
 
-static void set_fg_process(pid_t pid) {
+static int set_fg_process(pid_t pid) {
     sigset_t mask, prev;
     mask = get_sig_mask();
     sigprocmask(SIG_BLOCK, &mask, &prev);
+
+    last_exit_status = -1;
 
     // parent process
     tcsetpgrp(STDIN_FILENO, pid);
@@ -263,6 +265,8 @@ static void set_fg_process(pid_t pid) {
     }
 
     sigprocmask(SIG_SETMASK, &prev, NULL);
+
+    return last_exit_status;
 }
 
 static void exec_command(char* buffer) {
@@ -346,7 +350,11 @@ static void exec_command(char* buffer) {
         job_id += 1;
         add_node(jobs, job_id, pid, command_line);
 
-        set_fg_process(pid);
+        int status = set_fg_process(pid);
+
+        if (status > 0) {
+            print_error("%s: command not found", command_line);
+        }
 
         sigprocmask(SIG_SETMASK, &prev, NULL);
     }
@@ -446,9 +454,13 @@ static void sigchld_handler(int sig) {
 
         bool is_foreground = fg_pid == pid;
         bool stopped = WIFSTOPPED(status);
+        bool exited = WIFEXITED(status);
 
         if (is_foreground) {
             fg_pid = 0;
+            if (exited) {
+                last_exit_status = WEXITSTATUS(status);
+            }
         }
         if (!stopped) {
             delete_node_id(jobs, pid, NULL);

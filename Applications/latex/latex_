@@ -163,8 +163,9 @@ elif [ "$i" == "help" ]; then
 	echo "5.) edit - edit latex file"
 	echo "6.) workspace - workspace commands"
 	echo "7.) make - run make file for latex file"
+	echo "8.) git - version control stuff"
 else
-    return 1
+    exit 1
 fi
 
 echo ""
