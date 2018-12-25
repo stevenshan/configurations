@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -Og -Wall -std=c99
+CFLAGS = -g -Og -Wall -std=c99 -Wno-format-truncation
 LDLIBS=-lreadline
 
 all: latex

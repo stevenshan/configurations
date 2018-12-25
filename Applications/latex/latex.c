@@ -15,14 +15,13 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <termios.h>
+#include <limits.h>
 
 #include <readline/readline.h>
 #include <readline/history.h>
 
 #include "linked_list.h"
 #include "latex.h"
-
-#define PROMPT_COLOR "60"
 
 static struct termios terminal_settings;
 static int original_stdout;
@@ -31,17 +30,14 @@ static linked_list *jobs = NULL;
 static pid_t fg_pid = 0;
 static int job_id = 0;
 static int last_exit_status = -1;
+static char orig_wd[MAX_PATH_LEN] = {0};
 
 typedef void handler_t(int);
 
-const char* PROMPT_FORMAT = "\033[48;5;" PROMPT_COLOR "m %s \033[0m ";
-const char* ERROR_FORMAT = "\033[31mError: %s\033[0m\n";
-const char* WARNING_FORMAT = "\033[31m%s\033[0m\n";
-
 typedef struct exec_package_t {
     char *command_line;
-    char *command;
     char **cmd;
+    size_t num_args;
     sigset_t prev;
 } exec_package;
 
@@ -76,15 +72,20 @@ static void reset_terminal_settings() {
     clearerr(stdin);
 }
 
-static void get_prompt(char *buffer, char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
+static int reset_wd() {
+    return chdir(orig_wd);
+}
 
-    char temp[BUFFER_LEN];
-    vsnprintf(temp, BUFFER_LEN, fmt, args);
-    snprintf(buffer, BUFFER_LEN, PROMPT_FORMAT, temp);
+static char *format_wd(char *buffer) {
+    size_t orig_len = strlen(orig_wd);
+    size_t buff_len = strlen(buffer);
 
-    va_end(args);
+    if (buff_len < orig_len ||
+            strncmp(orig_wd, buffer, orig_len)) {
+        return NULL;
+    }
+
+    return &buffer[orig_len];
 }
 
 static void print_error(const char* fmt, ...) {
@@ -97,6 +98,60 @@ static void print_error(const char* fmt, ...) {
     fflush(stderr);
 
     va_end(args);
+}
+
+static void get_prompt(char *buffer, char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+
+    char temp[MAX_PATH_LEN];
+    vsnprintf(temp, MAX_PATH_LEN, fmt, args);
+
+    char wd[MAX_PATH_LEN];
+    char *fwd;
+    bool write_default = true;
+    if (getcwd(wd, MAX_PATH_LEN)) {
+        if ((fwd = format_wd(wd)) == NULL) {
+            // reset
+            reset_wd();
+            print_error("cannot leave LaTeX directory");
+        } else {
+            char c = '/';
+            if (strlen(fwd) == 0) {
+                fwd = &c;
+            }
+            snprintf(buffer, MAX_PATH_LEN,
+                     PROMPT_FORMAT PATH_FORMAT " ", temp, fwd);
+
+            write_default = false;
+        }
+    }
+
+    if (write_default) {
+        snprintf(buffer, MAX_PATH_LEN,
+                 PROMPT_FORMAT PATH_FORMAT " ", temp, "/");
+    }
+
+    va_end(args);
+}
+
+static char *strip_newline(char *buffer) {
+    size_t i = strlen(buffer);
+
+    if (i == 0) {
+        return buffer;
+    }
+
+    i -= 1;
+    while (buffer[i] == '\n') {
+        buffer[i] = '\0';
+        if (i == 0) {
+            break;
+        }
+        i -= 1;
+    }
+
+    return buffer;
 }
 
 static int exec_get_stdout(char *buffer, size_t n, char **args) {
@@ -136,7 +191,7 @@ static int exec_get_stdout(char *buffer, size_t n, char **args) {
         sigprocmask(SIG_SETMASK, &prev, NULL);
 
         ssize_t len;
-        if (child_status || (len = read(fd[0], buffer, n -1)) <= 0) {
+        if (child_status || (len = read(fd[0], buffer, n - 1)) <= 0) {
             error = 1;
         } else {
             buffer[len] = '\0';
@@ -271,45 +326,6 @@ static int set_fg_process(pid_t pid) {
     return last_exit_status;
 }
 
-static int run_fg_process(exec_package pack) {
-    if (streq(pack.command, "exit")) {
-        exit(0);
-    } else if (streq(pack.command, "jobs")) {
-        print_jobs();
-    } else if (streq(pack.command, "fg")) {
-        int arg;
-        node *pnode;
-        if (str_to_pid(pack.cmd[2], &arg)) {
-            if (id_in_linked_list(jobs, arg)) {
-                kill(-arg, SIGCONT);
-                set_fg_process(arg);
-            } else {
-                printf("%s: no such job\n", pack.command_line);
-            }
-        } else if ((pnode = get_recently_accessed(jobs)) != NULL) {
-            kill(-pnode->id, SIGCONT);
-            set_fg_process(pnode->id);
-        } else {
-            printf("Usage: fg [pid | %%jid]\n");
-        }
-    } else if (streq(pack.command, "kill")) {
-        int arg;
-        if (str_to_pid(pack.cmd[2], &arg)) {
-             if (id_in_linked_list(jobs, arg)) {
-                kill(-arg, SIGTERM);
-            } else {
-                printf("%s: no such job\n", pack.command_line);
-             }
-        } else {
-            printf("Usage: kill [pid | %%jid]\n");
-        }
-    } else {
-        return 0;
-    }
-
-    return 1;
-}
-
 static int start_process(exec_package pack) {
     pid_t pid = fork();
     if (pid == -1) {
@@ -340,15 +356,78 @@ static int start_process(exec_package pack) {
     return 0;
 }
 
-static void exec_command(char* buffer) {
-    char command[BUFFER_LEN];
+static int run_builtin_process(exec_package pack) {
+    char *command = pack.cmd[1];
 
-    // find command name
-    if (sscanf(buffer, "%s", command) != 1) {
-        // needs to at least match 1 item, ie. command
-        return;
+    if (streq(command, "exit")) {
+
+        exit(0);
+
+    } else if (streq(command, "jobs")) {
+
+        print_jobs();
+
+    } else if (streq(command, "fg")) {
+
+        int arg;
+        node *pnode;
+        if (str_to_pid(pack.cmd[2], &arg)) {
+            if (id_in_linked_list(jobs, arg)) {
+                kill(-arg, SIGCONT);
+                set_fg_process(arg);
+            } else {
+                printf("%s: no such job\n", pack.command_line);
+            }
+        } else if ((pnode = get_recently_accessed(jobs)) != NULL) {
+            kill(-pnode->id, SIGCONT);
+            set_fg_process(pnode->id);
+        } else {
+            printf("Usage: fg [pid | %%jid]\n");
+        }
+
+    } else if (streq(command, "kill")) {
+
+        int arg;
+        if (str_to_pid(pack.cmd[2], &arg)) {
+             if (id_in_linked_list(jobs, arg)) {
+                kill(-arg, SIGTERM);
+            } else {
+                printf("%s: no such job\n", pack.command_line);
+             }
+        } else {
+            printf("Usage: kill [pid | %%jid]\n");
+        }
+
+    } else if (streq(command, "cd")) {
+
+        if (pack.num_args != 2) {
+            printf("Usage: cd [path]\n");
+        } else {
+            bool changed = false;
+            if (strlen(pack.cmd[2]) + strlen(orig_wd) <  MAX_PATH_LEN) {
+                char temp_path[MAX_PATH_LEN];
+
+                strncpy(temp_path, orig_wd, MAX_PATH_LEN);
+                strcat(temp_path, pack.cmd[2]);
+
+                if (!chdir(temp_path)) {
+                    changed = true;
+                }
+            }
+
+            if (!changed && chdir(pack.cmd[2])) {
+                printf("%s: no such file or directory\n", pack.command_line);
+            }
+        }
+
+    } else {
+        return 0;
     }
 
+    return 1;
+}
+
+static void exec_command(char* buffer) {
     char command_line[BUFFER_LEN];
     strncpy(command_line,  buffer, BUFFER_LEN);
 
@@ -357,18 +436,22 @@ static void exec_command(char* buffer) {
     cmd[0] = latex_call;
     break_arguments(buffer, &cmd[1], &num_arguments);
 
+    if (num_arguments == 0) {
+        return;
+    }
+
     sigset_t mask, prev;
     mask = get_sig_mask();
     sigprocmask(SIG_BLOCK, &mask, &prev);
 
     exec_package pack;
-    pack.command = command;
     pack.command_line = command_line;
     pack.cmd = cmd;
+    pack.num_args = num_arguments;
     pack.prev = prev;
 
     int status;
-    if ((status = run_fg_process(pack))) {
+    if ((status = run_builtin_process(pack))) {
         // built in command
         sigprocmask(SIG_SETMASK, &prev, NULL);
     } else if ((status = start_process(pack)) <= 0) {
@@ -378,8 +461,6 @@ static void exec_command(char* buffer) {
         pack.cmd = &cmd[1];
         if ((status = start_process(pack)) == 127) {
             print_error("%s: command not found", command_line);
-        } else {
-            printf("status: %d\n", status);
         }
     }
 
@@ -478,7 +559,7 @@ static void init(int argc, char **argv) {
     }
 
     if (help || argc == 1) {
-        printf("usage: latex -c absolute_path_to_latex_bash_script "
+        printf("usage: latex [-c absolute_path_to_latex_bash_script] "
                "[-r command_to_run]\n");
         exit(0);
     } else if (strlen(latex_call) == 0) {
@@ -504,10 +585,23 @@ static void init(int argc, char **argv) {
     Signal(SIGTTOU, SIG_IGN);
     Signal(SIGTTIN, SIG_IGN);
 
+    // get working directory of LaTeX
+    char *cmd_line[] = {
+        latex_call, "exec", "pwd", NULL
+    };
+    if (exec_get_stdout(orig_wd, MAX_PATH_LEN, cmd_line) ||
+            !strip_newline(orig_wd)) {
+        print_error("Could not get LaTeX working directory.");
+        exit(1);
+    } else if (reset_wd()) {
+        print_error("Could not switch to LaTeX working directory.");
+        exit(1);
+    }
+
 }
 
 static void main_loop() {
-    char buffer[BUFFER_LEN];
+    char buffer[MAX_PATH_LEN];
     char *cmd_buffer = NULL;
     while (true) {
         // get workspace name
@@ -525,11 +619,7 @@ static void main_loop() {
             return;
         }
 
-        // remove trailing newline character
-        if (strlen(cmd_buffer) > 0 &&
-                cmd_buffer[strlen(buffer) - 1] == '\n') {
-            cmd_buffer[strlen(cmd_buffer) - 1] = '\0';
-        }
+        strip_newline(cmd_buffer);
 
         exec_command(cmd_buffer);
 
