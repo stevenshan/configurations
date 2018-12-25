@@ -24,7 +24,6 @@
 
 #define PROMPT_COLOR "60"
 
-extern char **environ;
 static struct termios terminal_settings;
 static int original_stdout;
 static char latex_call[BUFFER_LEN] = {0};
@@ -125,7 +124,7 @@ static int exec_get_stdout(char *buffer, size_t n, char **args) {
         reset_signal_handlers();
         sigprocmask(SIG_SETMASK, &prev, NULL);
 
-        execve(args[0], args, environ);
+        execvp(args[0], args);
 
         // failure to run command
         error = 1;
@@ -291,7 +290,7 @@ static int run_fg_process(exec_package pack) {
             kill(-pnode->id, SIGCONT);
             set_fg_process(pnode->id);
         } else {
-            printf("Usage: fg [pid] [%%jid]\n");
+            printf("Usage: fg [pid | %%jid]\n");
         }
     } else if (streq(pack.command, "kill")) {
         int arg;
@@ -302,7 +301,7 @@ static int run_fg_process(exec_package pack) {
                 printf("%s: no such job\n", pack.command_line);
              }
         } else {
-            printf("Usage: kill [pid] [%%jid]\n");
+            printf("Usage: kill [pid | %%jid]\n");
         }
     } else {
         return 0;
@@ -322,9 +321,9 @@ static int start_process(exec_package pack) {
         reset_signal_handlers();
         sigprocmask(SIG_SETMASK, &(pack.prev), NULL);
 
-        execve(pack.cmd[0], pack.cmd, environ);
+        execvp(pack.cmd[0], pack.cmd);
 
-        exit(0);
+        exit(127);
     } else {
         // parent process
         job_id += 1;
@@ -368,13 +367,20 @@ static void exec_command(char* buffer) {
     pack.cmd = cmd;
     pack.prev = prev;
 
-    if (run_fg_process(pack)) {
+    int status;
+    if ((status = run_fg_process(pack))) {
+        // built in command
         sigprocmask(SIG_SETMASK, &prev, NULL);
-        return;
-    }
-
-    if (start_process(pack) > 0) {
-        print_error("command not found");
+    } else if ((status = start_process(pack)) <= 0) {
+        // latex command
+    } else {
+        // bash command
+        pack.cmd = &cmd[1];
+        if ((status = start_process(pack)) == 127) {
+            print_error("%s: command not found", command_line);
+        } else {
+            printf("status: %d\n", status);
+        }
     }
 
 }

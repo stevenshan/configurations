@@ -165,12 +165,13 @@ elif [ "$i" == "help" ]; then
 	echo "5.) edit - edit latex file"
 	echo "6.) workspace - workspace commands"
 	echo "7.) make - run make file for latex file"
+elif [ "$i" == "exec" ]; then
+    reset_wd
+    ${@:2}
 else
     exit 1
 fi
 
 echo ""
-
-echo $orig_wd
 
 exit 0
