@@ -20,7 +20,6 @@
 #include <readline/history.h>
 
 #include "linked_list.h"
-#include "circular_buffer.h"
 #include "latex.h"
 
 #define PROMPT_COLOR "60"
@@ -32,7 +31,6 @@ static char latex_call[BUFFER_LEN] = {0};
 static linked_list *jobs = NULL;
 static pid_t fg_pid = 0;
 static int job_id = 0;
-static circular_buffer cmd_history;
 
 typedef void handler_t(int);
 static void sigchld_handler(int sig);
@@ -159,7 +157,7 @@ static int get_workspace(char *buffer) {
     };
 
     int result = exec_latex_call(buffer, BUFFER_LEN, cmd_line);
-    return result || (sscanf(buffer, "Current workspace: %s", buffer) != 1);
+    return result || sscanf(buffer, "Current workspace: %s", buffer) != 1;
 }
 
 static void break_arguments(char *cmdline, char **buffer, size_t *cnt) {
@@ -278,7 +276,6 @@ static void exec_command(char* buffer) {
 
     char command_line[BUFFER_LEN];
     strncpy(command_line,  buffer, BUFFER_LEN);
-    add_to_cbuff(&cmd_history, command_line);
 
     char *cmd[BUFFER_LEN] = {NULL};
     size_t num_arguments;
@@ -400,8 +397,6 @@ int main(int argc, char *argv[]) {
     Signal(SIGTSTP, sigtstp_handler);
     Signal(SIGTTOU, SIG_IGN);
     Signal(SIGTTIN, SIG_IGN);
-
-    cmd_history = new_circular_buffer();
 
     char buffer[BUFFER_LEN];
     char *cmd_buffer = NULL;

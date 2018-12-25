@@ -164,7 +164,7 @@ elif [ "$i" == "help" ]; then
 	echo "6.) workspace - workspace commands"
 	echo "7.) make - run make file for latex file"
 else
-    $@
+    return 1
 fi
 
 echo ""
