@@ -99,7 +99,7 @@ static void print_error(const char* fmt, ...) {
     va_end(args);
 }
 
-static int get_workspace(char *buffer) {
+static int exec_latex_call(char *buffer, size_t n, char **args) {
     int fd[2];
     if (pipe(fd)) {
         return 1;
@@ -121,14 +121,10 @@ static int get_workspace(char *buffer) {
 
     pid_t pid = fork();
     if (pid == 0) {
-        char *cmd_line[] = {
-            latex_call, "workspace", NULL
-        };
-
         reset_signal_handlers();
         sigprocmask(SIG_SETMASK, &prev, NULL);
 
-        execve(cmd_line[0], cmd_line, environ);
+        execve(args[0], args, environ);
 
         // failure to run command
         error = 1;
@@ -139,12 +135,11 @@ static int get_workspace(char *buffer) {
         waitpid(pid, &child_status, 0);
         sigprocmask(SIG_SETMASK, &prev, NULL);
 
-        char buf[BUFFER_LEN] = {0};
-        bool child_error = child_status ||
-                           read(fd[0], buf, BUFFER_LEN - 1) <= 0 ||
-                           sscanf(buf, "Current workspace: %s", buffer) <= 0;
-        if (child_error) {
+        ssize_t len;
+        if (child_status || (len = read(fd[0], buffer, n -1)) <= 0) {
             error = 1;
+        } else {
+            buffer[len] = '\0';
         }
     }
 
@@ -156,6 +151,15 @@ static int get_workspace(char *buffer) {
     close(fd[1]);
 
     return error;
+}
+
+static int get_workspace(char *buffer) {
+    char *cmd_line[] = {
+        latex_call, "workspace", NULL
+    };
+
+    int result = exec_latex_call(buffer, BUFFER_LEN, cmd_line);
+    return result || (sscanf(buffer, "Current workspace: %s", buffer) != 1);
 }
 
 static void break_arguments(char *cmdline, char **buffer, size_t *cnt) {
