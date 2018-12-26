@@ -21,6 +21,7 @@
 #include <readline/history.h>
 
 #include "linked_list.h"
+#include "sh_helper.h"
 #include "latex.h"
 
 static struct termios terminal_settings;
