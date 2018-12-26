@@ -218,19 +218,34 @@ static int get_workspace(char *buffer) {
 }
 
 static void break_arguments(char *cmdline, char **buffer, size_t *cnt) {
-    size_t i;
+    size_t i = 0;
     size_t j = 0;
+    size_t k;
     bool quote_active = false;
     char quote_match = 0;
     char c;
     char *start = NULL;
     size_t len = strlen(cmdline);
     size_t count = 0;
+    size_t shift = 0;
 
-    for (i = 0; i < len; i++) {
+    for (k = 0; k < len; k++) {
+        i = k + shift;
+        cmdline[k] = cmdline[i];
         c = cmdline[i];
         if (c == ' ' && start == NULL) {
             continue;
+        } else if (c == '\\' && !quote_active) {
+            if (i + 1 >= len) {
+                break;
+            }
+
+            c = cmdline[i + 1];
+            if (c == ' ' || c == '\\') {
+                cmdline[k] = cmdline[i + 1];
+                shift += 1;
+            }
+            // test\ a\ b
         } else if (c == ' ' && !quote_active) {
             buffer[j] = start;
             j += 1;
@@ -252,12 +267,25 @@ static void break_arguments(char *cmdline, char **buffer, size_t *cnt) {
 
     if (start != NULL) {
         buffer[j] = start;
-        cmdline[i] = '\0';
+        cmdline[k] = '\0';
         count += 1;
     }
 
     if (cnt != NULL) {
         *cnt = count;
+    }
+
+    for (i = 0; i < count; i++) {
+        char *buf = buffer[i];
+        if (strlen(buf) == 0) {
+            continue;
+        }
+        size_t len = strlen(buf);
+        size_t end = len - 1;
+        if (buf[0] == buf[end] && (buf[0] == '\'' || buf[0] == '"')) {
+            buf[end] = '\0';
+            buffer[i] = &(buf[1]);
+        }
     }
 }
 
