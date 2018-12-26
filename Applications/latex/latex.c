@@ -293,7 +293,7 @@ static void print_job(int i, int pid, char *key) {
 static void print_jobs() {
     if (linked_list_len(jobs)) {
         printf("%-5s %-7s %s\n", "ID", "PID", "Command");
-        map_list(jobs, print_job);
+        map_list(jobs, &print_job);
     } else {
         printf("No jobs running.\n");
     }
