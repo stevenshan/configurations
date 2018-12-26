@@ -82,14 +82,14 @@ size_t linked_list_len(linked_list *L) {
     return len - 2;
 }
 
-int add_node(linked_list *L, int i, int id, const char *key) {
+node *add_node(linked_list *L, int i, int id, const char *key) {
     if (L == NULL) {
-        return 1;
+        return NULL;
     }
 
     node *new_node = malloc(sizeof(node));
     if (new_node == NULL) {
-        return 1;
+        return NULL;
     }
     init_dummy_node(new_node);
 
@@ -107,7 +107,7 @@ int add_node(linked_list *L, int i, int id, const char *key) {
     new_node->next = head;
     L->head = new_node;
 
-    return 0;
+    return head;
 }
 
 static void remove_node(node *n) {
@@ -190,7 +190,7 @@ node reduce_list(linked_list *L, reduce_func_f *func, node base) {
 
 node *find_i(linked_list *L, int i) {
     for (node *iter = L->head; iter != NULL; iter = iter->next) {
-        if (iter->i == i) {
+        if (LL_I(iter->i) == i) {
             accessed(L, iter);
             return iter;
         }

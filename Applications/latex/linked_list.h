@@ -5,6 +5,10 @@
 
 #include "latex.h"
 
+#define LL_FLAGS 3
+#define LL_MASK_I ((1 << LL_FLAGS) - 1)
+#define LL_I(x) (x >> LL_FLAGS)
+
 typedef struct node_t node;
 struct node_t {
     int i;
@@ -27,7 +31,7 @@ linked_list *new_linked_list();
 void destroy_linked_list(linked_list *L);
 size_t linked_list_len(linked_list *L);
 
-int add_node(linked_list *L, int i, int id, const char *key);
+node *add_node(linked_list *L, int i, int id, const char *key);
 bool delete_node_id(linked_list *L, int id, node *result);
 
 typedef void map_func_f(int, int, char*);

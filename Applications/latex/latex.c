@@ -31,6 +31,7 @@ static pid_t fg_pid = 0;
 static int job_id = 0;
 static int last_exit_status = -1;
 static char orig_wd[MAX_PATH_LEN] = {0};
+static int dev_null_fd = -1;
 
 typedef void handler_t(int);
 
@@ -39,6 +40,7 @@ typedef struct exec_package_t {
     char **cmd;
     size_t num_args;
     sigset_t prev;
+    bool silent;
 } exec_package;
 
 static sigset_t get_sig_mask() {
@@ -289,33 +291,28 @@ static void break_arguments(char *cmdline, char **buffer, size_t *cnt) {
     }
 }
 
-static bool str_to_pid(char* str, int *value) {
-    if (value == NULL || str == NULL) {
-        return false;
+static node *str_to_node(char* str) {
+    if (str == NULL) {
+        return NULL;
     }
 
-    if (sscanf(str, "%%%d", value)) {
+    node *result = NULL;
+    int value;
+    if (sscanf(str, "%%%d", &value)) {
         // if job number given
-
-        node *n = find_i(jobs, *value);
-        if (n == NULL) {
-            *value = 0;
-        } else {
-            *value = n->id;
-        }
-        return true;
+        result = find_i(jobs, value);
     }
 
-    if (sscanf(str, "%d", value)) {
+    if (sscanf(str, "%d", &value)) {
         // if pid number given
-        return true;
+        result = find_id(jobs, value);
     }
 
-    return false;
+    return result;
 }
 
 static void print_job(int i, int pid, char *key) {
-    printf("%-5d %-7d %s\n", i, pid, key);
+    printf("%-5d %-7d %s\n", LL_I(i), pid, key);
 }
 
 static void print_jobs() {
@@ -354,6 +351,10 @@ static int set_fg_process(pid_t pid) {
     return last_exit_status;
 }
 
+static int set_fg_node(node *pnode, exec_package pack) {
+    return set_fg_process(pnode->id);
+}
+
 static int start_process(exec_package pack) {
     pid_t pid = fork();
     if (pid == -1) {
@@ -371,9 +372,10 @@ static int start_process(exec_package pack) {
     } else {
         // parent process
         job_id += 1;
-        add_node(jobs, job_id, pid, pack.command_line);
+        node *pnode = add_node(jobs, (job_id << LL_FLAGS) | pack.silent,
+                               pid, pack.command_line);
 
-        int status = set_fg_process(pid);
+        int status = set_fg_node(pnode, pack);
 
         sigprocmask(SIG_SETMASK, &(pack.prev), NULL);
 
@@ -382,6 +384,21 @@ static int start_process(exec_package pack) {
 
     // unreachable
     return 0;
+}
+
+static int run_latex_process(exec_package pack) {
+    if (streq(pack.cmd[1], "preview")) {
+        pack.silent = true;
+    }
+
+    if (pack.silent) {
+        dup2(dev_null_fd, STDOUT_FILENO);
+    }
+    int status = start_process(pack);
+    if (pack.silent) {
+        dup2(original_stdout, STDOUT_FILENO);
+    }
+    return status;
 }
 
 static int run_builtin_process(exec_package pack) {
@@ -397,39 +414,36 @@ static int run_builtin_process(exec_package pack) {
 
     } else if (streq(command, "fg")) {
 
-        int arg;
         node *pnode;
-        if (str_to_pid(pack.cmd[2], &arg)) {
-            if (id_in_linked_list(jobs, arg)) {
-                kill(-arg, SIGCONT);
-                set_fg_process(arg);
+        if (pack.num_args == 1) {
+            if ((pnode = get_recently_accessed(jobs)) != NULL) {
+                kill(-(pnode->id), SIGCONT);
+                set_fg_node(pnode, pack);
             } else {
-                printf("%s: no such job\n", pack.command_line);
+                printf("Usage: fg [pid | %%jid]\n");
             }
-        } else if ((pnode = get_recently_accessed(jobs)) != NULL) {
-            kill(-pnode->id, SIGCONT);
-            set_fg_process(pnode->id);
+        } else if ((pnode = str_to_node(pack.cmd[2])) != NULL) {
+            kill(-(pnode->id), SIGCONT);
+            set_fg_node(pnode, pack);
         } else {
-            printf("Usage: fg [pid | %%jid]\n");
+            printf("%s: no such job\n", pack.command_line);
         }
 
     } else if (streq(command, "kill")) {
 
-        int arg;
-        if (str_to_pid(pack.cmd[2], &arg)) {
-             if (id_in_linked_list(jobs, arg)) {
-                kill(-arg, SIGTERM);
-            } else {
-                printf("%s: no such job\n", pack.command_line);
-             }
-        } else {
+        node *pnode;
+        if (pack.num_args == 1) {
             printf("Usage: kill [pid | %%jid]\n");
+        } else if ((pnode = str_to_node(pack.cmd[2])) != NULL) {
+            kill(-(pnode->id), SIGTERM);
+        } else {
+            printf("%s: no such job\n", pack.command_line);
         }
 
     } else if (streq(command, "cd")) {
 
         if (pack.num_args != 2) {
-            printf("Usage: cd [path]\n");
+            printf("Usage: cd path\n");
         } else {
             bool changed = false;
             if (strlen(pack.cmd[2]) + strlen(orig_wd) <  MAX_PATH_LEN) {
@@ -477,12 +491,13 @@ static void exec_command(char* buffer) {
     pack.cmd = cmd;
     pack.num_args = num_arguments;
     pack.prev = prev;
+    pack.silent = false;
 
     int status;
     if ((status = run_builtin_process(pack))) {
         // built in command
         sigprocmask(SIG_SETMASK, &prev, NULL);
-    } else if ((status = start_process(pack)) <= 0) {
+    } else if ((status = run_latex_process(pack)) <= 0) {
         // latex command
     } else {
         // bash command
@@ -528,12 +543,12 @@ static void sigchld_handler(int sig) {
             node acc;
             acc.i = 0;
             acc = reduce_list(jobs, &max_node, acc);
-            job_id = acc.i;
+            job_id = LL_I(acc.i);
         } else {
             node *pnode;
             if ((pnode = find_id(jobs, pid)) != NULL) {
                 printf("\nJob [%d] (%d) '%s' stopped.\n",
-                       pnode->i, pnode->id, pnode->key);
+                       LL_I(pnode->i), pnode->id, pnode->key);
             }
         }
 
@@ -568,7 +583,7 @@ static void cleanup() {
     reset_terminal_settings();
 }
 
-static void init(int argc, char **argv) {
+static void sh_init(int argc, char **argv) {
     extern char *optarg;
 
     bool help = false;
@@ -605,6 +620,9 @@ static void init(int argc, char **argv) {
     } else if (tcgetattr(STDIN_FILENO, &terminal_settings)) {
         print_error("Couldn't get terminal settings.");
         exit(1);
+    } else if (setpgid(0, 0)) {
+        print_error("Couldn't set process group of shell.");
+        exit(1);
     }
 
     Signal(SIGCHLD, sigchld_handler);
@@ -626,9 +644,14 @@ static void init(int argc, char **argv) {
         exit(1);
     }
 
+    if ((dev_null_fd = open("/dev/null", O_RDWR)) < 0) {
+        print_error("Could not open /dev/null file descriptor");
+        exit(1);
+    }
+
 }
 
-static void main_loop() {
+static void sh_loop() {
     char buffer[MAX_PATH_LEN];
     char *cmd_buffer = NULL;
     while (true) {
@@ -655,8 +678,13 @@ static void main_loop() {
     }
 }
 
+static void sh_cleanup() {
+    close(dev_null_fd);
+}
+
 int main(int argc, char *argv[]) {
-    init(argc, argv);
-    main_loop();
+    sh_init(argc, argv);
+    sh_loop();
+    sh_cleanup();
 }
 
