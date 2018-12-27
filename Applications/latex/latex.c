@@ -128,9 +128,8 @@ static void get_prompt(char *buffer, char* fmt, ...) {
             reset_wd();
             print_error("cannot leave LaTeX directory");
         } else {
-            char c = '/';
             if (strlen(fwd) == 0) {
-                fwd = &c;
+                fwd = "/";
             }
             snprintf(buffer, MAX_PATH_LEN,
                      PROMPT_FORMAT PATH_FORMAT " ", temp, fwd);
