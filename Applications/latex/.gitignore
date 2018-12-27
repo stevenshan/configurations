@@ -1,3 +1,4 @@
 latex
 *.o
 *.swp
+latex_dir.h

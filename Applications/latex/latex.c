@@ -22,6 +22,11 @@
 
 #include "linked_list.h"
 #include "latex.h"
+#include "latex_dir.h"
+
+#ifndef LATEX_DIR
+#define LATEX_DIR ""
+#endif
 
 #define COMMAND_NOT_FOUND 127
 
@@ -615,13 +620,19 @@ static void sh_init(int argc, char **argv) {
         }
     }
 
-    if (help || argc == 1) {
+    if (strlen(latex_call) == 0) {
+        if (strlen(LATEX_DIR) == 0) {
+            print_error("No latex script given. See usage.");
+            exit(1);
+        } else {
+            strncpy(latex_call, LATEX_DIR, BUFFER_LEN - 1);
+        }
+    }
+
+    if (help) {
         printf("usage: latex [-c absolute_path_to_latex_bash_script] "
-               "[-r command_to_run]\n");
+               "[command_to_run]\n");
         exit(0);
-    } else if (strlen(latex_call) == 0) {
-        print_error("No latex script given. See usage.");
-        exit(1);
     } else if ((jobs = new_linked_list()) == NULL) {
         print_error("Could not initialize job list.");
         exit(1);
