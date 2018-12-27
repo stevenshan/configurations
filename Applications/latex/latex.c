@@ -88,6 +88,10 @@ static int reset_wd() {
     return chdir(orig_wd);
 }
 
+static bool node_not_silent(node n) {
+    return !(n.i & SILENT_FLAG);
+}
+
 static char *format_wd(char *buffer) {
     size_t orig_len = strlen(orig_wd);
     size_t buff_len = strlen(buffer);
@@ -429,7 +433,8 @@ static int run_builtin_process(exec_package pack) {
 
         node *pnode;
         if (pack.num_args == 1) {
-            if ((pnode = get_recently_accessed(jobs)) != NULL) {
+            if ((pnode = get_recently_accessed(jobs, &node_not_silent))
+                    != NULL) {
                 kill(-(pnode->id), SIGCONT);
                 set_fg_node(pnode);
             } else {

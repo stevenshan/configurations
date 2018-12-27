@@ -45,6 +45,7 @@ node reduce_list(linked_list *L, reduce_func_f *func, node base);
 node *find_i(linked_list *L, int i);
 node *find_id(linked_list *L, int id);
 
-node *get_recently_accessed(linked_list *L);
+typedef bool pred_func_f(node);
+node *get_recently_accessed(linked_list *L, pred_func_f *func);
 
 #endif

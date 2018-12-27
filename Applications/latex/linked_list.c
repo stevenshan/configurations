@@ -208,7 +208,7 @@ node *find_id(linked_list *L, int id) {
     return NULL;
 }
 
-node *get_recently_accessed(linked_list *L) {
+node *get_recently_accessed(linked_list *L, pred_func_f *func) {
     node *most_recent = NULL;
     size_t time = 0;
 
@@ -216,8 +216,10 @@ node *get_recently_accessed(linked_list *L) {
         return most_recent;
     }
 
-    for (node *iter = L->head->next; iter != L->tail; iter = iter->next) {
-        if (iter->access_time >= time) {
+    for (node *iter = L->head->next; iter != L->tail && iter != NULL;
+         iter = iter->next) {
+        if (iter->access_time >= time &&
+                (func == NULL || func(*iter))) {
             time = iter->access_time;
             most_recent = iter;
         }
