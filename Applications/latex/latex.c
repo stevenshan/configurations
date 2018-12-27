@@ -370,6 +370,8 @@ static int set_fg_process(pid_t pid) {
 static int set_fg_node(node *pnode) {
     if (!(pnode->i & SILENT_FLAG)) {
         return set_fg_process(pnode->id);
+    } else {
+        printf("starting process in silent mode\n");
     }
     return -1;
 }
