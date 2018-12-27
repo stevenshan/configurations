@@ -22,15 +22,16 @@
 
 #include "linked_list.h"
 #include "latex.h"
-#include "latex_dir.h"
 
+#include "latex_dir.h"
 #ifndef LATEX_DIR
 #define LATEX_DIR ""
 #endif
 
 #define COMMAND_NOT_FOUND 127
-
 #define SILENT_FLAG 1
+
+extern int optind;
 
 static struct termios terminal_settings;
 static int original_stdout;
@@ -631,6 +632,19 @@ static void sh_init(int argc, char **argv) {
         } else {
             strncpy(latex_call, LATEX_DIR, BUFFER_LEN - 1);
         }
+    }
+
+    if (argc - optind > 0) {
+        char *cmd[argc - optind + 2];
+        cmd[0] = latex_call;
+        for (int i = optind; i < argc; i++) {
+            cmd[i - optind + 1] = argv[i];
+        }
+        cmd[argc - optind + 1] = NULL;
+        execvp(cmd[0], cmd);
+
+        print_error("Could not start latex script.");
+        exit(1);
     }
 
     if (help) {
