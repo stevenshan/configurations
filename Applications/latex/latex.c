@@ -23,6 +23,10 @@
 #include "linked_list.h"
 #include "latex.h"
 
+#define COMMAND_NOT_FOUND 127
+
+#define SILENT_FLAG 1
+
 static struct termios terminal_settings;
 static int original_stdout;
 static char latex_call[BUFFER_LEN] = {0};
@@ -32,6 +36,7 @@ static int job_id = 0;
 static int last_exit_status = -1;
 static char orig_wd[MAX_PATH_LEN] = {0};
 static int dev_null_fd = -1;
+static bool full_cleanup = true;
 
 typedef void handler_t(int);
 
@@ -178,6 +183,7 @@ static int exec_get_stdout(char *buffer, size_t n, char **args) {
 
     pid_t pid = fork();
     if (pid == 0) {
+        full_cleanup = false;
         reset_signal_handlers();
         sigprocmask(SIG_SETMASK, &prev, NULL);
 
@@ -312,12 +318,13 @@ static node *str_to_node(char* str) {
 }
 
 static void print_job(int i, int pid, char *key) {
-    printf("%-5d %-7d %s\n", LL_I(i), pid, key);
+    char *s = i & SILENT_FLAG ? "yes" : "";
+    printf("%-5d %-6d %-6s %s\n", LL_I(i), pid, s, key);
 }
 
 static void print_jobs() {
     if (linked_list_len(jobs)) {
-        printf("%-5s %-7s %s\n", "ID", "PID", "Command");
+        printf("%-5s %-6s %-6s %s\n", "ID", "PID", "Silent", "Command");
         map_list(jobs, &print_job);
     } else {
         printf("No jobs running.\n");
@@ -351,8 +358,11 @@ static int set_fg_process(pid_t pid) {
     return last_exit_status;
 }
 
-static int set_fg_node(node *pnode, exec_package pack) {
-    return set_fg_process(pnode->id);
+static int set_fg_node(node *pnode) {
+    if (!(pnode->i & SILENT_FLAG)) {
+        return set_fg_process(pnode->id);
+    }
+    return -1;
 }
 
 static int start_process(exec_package pack) {
@@ -361,21 +371,26 @@ static int start_process(exec_package pack) {
         print_error("Couldn't fork process.");
     } else if (pid == 0) {
         // child process
+        full_cleanup = false;
         setpgid(0, 0);
 
         reset_signal_handlers();
         sigprocmask(SIG_SETMASK, &(pack.prev), NULL);
 
+        if (pack.silent) {
+            dup2(dev_null_fd, STDOUT_FILENO);
+        }
+
         execvp(pack.cmd[0], pack.cmd);
 
-        exit(127);
+        exit(COMMAND_NOT_FOUND);
     } else {
         // parent process
         job_id += 1;
         node *pnode = add_node(jobs, (job_id << LL_FLAGS) | pack.silent,
                                pid, pack.command_line);
 
-        int status = set_fg_node(pnode, pack);
+        int status = set_fg_node(pnode);
 
         sigprocmask(SIG_SETMASK, &(pack.prev), NULL);
 
@@ -391,13 +406,7 @@ static int run_latex_process(exec_package pack) {
         pack.silent = true;
     }
 
-    if (pack.silent) {
-        dup2(dev_null_fd, STDOUT_FILENO);
-    }
     int status = start_process(pack);
-    if (pack.silent) {
-        dup2(original_stdout, STDOUT_FILENO);
-    }
     return status;
 }
 
@@ -418,13 +427,13 @@ static int run_builtin_process(exec_package pack) {
         if (pack.num_args == 1) {
             if ((pnode = get_recently_accessed(jobs)) != NULL) {
                 kill(-(pnode->id), SIGCONT);
-                set_fg_node(pnode, pack);
+                set_fg_node(pnode);
             } else {
                 printf("Usage: fg [pid | %%jid]\n");
             }
         } else if ((pnode = str_to_node(pack.cmd[2])) != NULL) {
             kill(-(pnode->id), SIGCONT);
-            set_fg_node(pnode, pack);
+            set_fg_node(pnode);
         } else {
             printf("%s: no such job\n", pack.command_line);
         }
@@ -469,6 +478,10 @@ static int run_builtin_process(exec_package pack) {
     return 1;
 }
 
+static bool command_existed(int status) {
+    return status != COMMAND_NOT_FOUND;
+}
+
 static void exec_command(char* buffer) {
     char command_line[BUFFER_LEN];
     strncpy(command_line,  buffer, BUFFER_LEN);
@@ -493,16 +506,15 @@ static void exec_command(char* buffer) {
     pack.prev = prev;
     pack.silent = false;
 
-    int status;
-    if ((status = run_builtin_process(pack))) {
+    if (run_builtin_process(pack)) {
         // built in command
         sigprocmask(SIG_SETMASK, &prev, NULL);
-    } else if ((status = run_latex_process(pack)) <= 0) {
+    } else if (command_existed(run_latex_process(pack))) {
         // latex command
     } else {
         // bash command
         pack.cmd = &cmd[1];
-        if ((status = start_process(pack)) == 127) {
+        if (!command_existed(start_process(pack))) {
             print_error("%s: command not found", command_line);
         }
     }
@@ -574,8 +586,10 @@ static void cleanup_pid(int i, int pid, char *key) {
 }
 
 static void cleanup() {
-    map_list(jobs, &cleanup_pid);
-    while (waitpid(-1, NULL, 0) > 0);
+    if (full_cleanup) {
+        map_list(jobs, &cleanup_pid);
+        while (waitpid(-1, NULL, 0) > 0);
+    }
 
     close(original_stdout);
     reset_signal_handlers();
