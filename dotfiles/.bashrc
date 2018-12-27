@@ -150,6 +150,3 @@ export PATH=${GOPATH}/bin:$PATH
 alias mlenv="(nvidia-docker start mlenv ||
               nvidia-docker run -it -p 8888:8888 --ipc=host --name=mlenv -v ${HOME}/Documents/docker_volumes/mlenv:/root -d ufoym/deepo:all-py36-jupyter) &&
              nvidia-docker exec -it mlenv"
-
-alias test='make && ./latex -c /home/shans/configurations/Applications/latex/latex_'
-
