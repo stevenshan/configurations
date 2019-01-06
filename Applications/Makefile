@@ -7,7 +7,8 @@ all: docker-credential-pass Postman
 docker-credential-pass:
 	go get github.com/docker/docker-credential-helpers || true
 	make -C $(DOCKER_PATH) pass
-	mv $(DOCKER_PATH)/bin/docker-credential-pass .
+	cp $(DOCKER_PATH)/bin/docker-credential-pass .
+	make -C $(DOCKER_PATH) clean
 
 Postman:
 	wget -O postman_linux64.tar.gz $(POSTMAN_URL)
