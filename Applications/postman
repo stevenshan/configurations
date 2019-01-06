@@ -4,25 +4,6 @@ WD=$(dirname "$0")
 POSTMAN_DIR=${WD}/Postman
 LOG=${POSTMAN_DIR}/log.txt
 
-POSTMAN_URL="https://dl.pstmn.io/download/latest/linux64"
-
-# download postman if it doesn't exist
-if [ ! -d "Postman" ]; then
-    wget -O postman_linux64.tar.gz $POSTMAN_URL
-
-    if [ $? -ne 0 ]; then
-        printf "\033[0;31m"
-        printf "Error: couldn't retrieve Postman binary from \n$POSTMAN_URL"
-        printf "\033[0;0m\n"
-        exit 1
-    fi
-
-    printf "\nUnzipping Postman binary\n"
-
-    tar -xf postman_linux64.tar.gz
-    rm -f postman_linux64.tar.gz
-fi
-
 printf "\n" >> $LOG
 echo $(date) >> $LOG
 nohup ${POSTMAN_DIR}/Postman >> $LOG 2>&1 &
