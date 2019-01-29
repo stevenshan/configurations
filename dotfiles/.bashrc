@@ -117,6 +117,16 @@ fi
 
 ###############################################################################
 
+function _update_ps1() {
+    PS1=$(powerline-shell $?)
+}
+
+if powerline-shell >> /dev/null; then
+    if [[ $TERM != linux && ! $PROMPT_COMMAND =~ _update_ps1 ]]; then
+        PROMPT_COMMAND="_update_ps1; $PROMPT_COMMAND"
+    fi
+fi
+
 # python virtual environment
 export WORKON_HOME=~/virtualenvs
 source /usr/local/bin/virtualenvwrapper.sh
