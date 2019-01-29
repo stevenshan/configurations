@@ -1,0 +1,14 @@
+FROM ubuntu:18.04
+
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y vim git python3-pip nodejs tmux rlwrap
+
+RUN git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
+
+RUN git clone https://github.com/stevenshan/configurations.git ~/configurations
+RUN cp ~/configurations/dotfiles/.* ~/ | true
+
+RUN vim +PluginInstall +qall
+
+CMD /bin/bash
