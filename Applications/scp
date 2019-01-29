@@ -22,24 +22,24 @@ for var in "$@"; do
 done
 
 if [ "$found" = "0" ]; then
-    $sshcommand "$@"   
+    $sshcommand "$@"
     exit 0
 fi
 
 host="$newhost$hostloc"
 
-sshhost="$($DIR/__gethost__ "$newhost")"
+sshhost="$($DIR/gethost "$newhost")"
 
 passwordIndex="$?"
 password=""
 
 if [ "$passwordIndex" != "0" ]; then
-    password="$($DIR/__getpassword__ $(($passwordIndex-1)))"
+    password="$($DIR/getpassword $(($passwordIndex-1)))"
     code="$?"
 
     if [ "$code" != "0" ]; then
         echo -e "\e[31m Could not get password.\e[m"
-    fi  
+    fi
 fi
 
 fullname="$sshhost$hostloc"

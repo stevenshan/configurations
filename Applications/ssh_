@@ -5,13 +5,13 @@ EXPECT="password:"
 
 sshcommand="/usr/bin/mosh"
 
-sshhost="$($DIR/__gethost__ "${@: -1}")"
+sshhost="$($DIR/gethost "${@: -1}")"
 
 passwordIndex="$?"
 password=""
 
 if [ "$passwordIndex" != "0" ]; then
-    password="$($DIR/__getpassword__ $(($passwordIndex-1)))"
+    password="$($DIR/getpassword $(($passwordIndex-1)))"
     code="$?"
 
     if [ "$code" != "0" ]; then
