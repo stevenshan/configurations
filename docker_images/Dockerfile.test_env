@@ -4,6 +4,13 @@ RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y vim git python3-pip nodejs tmux rlwrap npm
 
+RUN apt-get install -y systemd
+
+RUN apt-get install -y apache2 && \
+    rm -rf /var/www/html && \
+    ln -s ~/ /var/www/html && \
+    systemctl enable apache2
+
 RUN git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
 
 RUN git clone https://github.com/stevenshan/configurations.git ~/configurations
@@ -16,5 +23,7 @@ RUN chmod 600 ~/.ssh/config | true
 
 RUN git config --global user.email "me@stevenshan.com" && \
     git config --global user.name "Steven Shan"
+
+RUN chmod 755 ~/
 
 CMD /bin/bash
