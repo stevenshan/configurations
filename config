@@ -1,0 +1,23 @@
+# ssh configuration
+
+Host server
+    HostName ssh.stevenshan.com
+    User shans
+
+Host *andrew
+    Hostname unix%h.cmu.edu
+    User slshan
+    GSSAPIAuthentication yes
+    GSSAPIDelegateCredentials yes
+    ForwardX11 yes
+
+Host shark
+    Hostname shark.ics.cs.cmu.edu
+    User slshan
+    GSSAPIAuthentication yes
+    GSSAPIDelegateCredentials yes
+
+Host github.com-slshan
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_rsa
