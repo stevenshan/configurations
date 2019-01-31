@@ -25,5 +25,6 @@ RUN git config --global user.email "me@stevenshan.com" && \
     git config --global user.name "Steven Shan"
 
 RUN chmod 755 ~/
+RUN echo "service apache2 start" >> ~/.bashrc
 
 CMD /bin/bash
