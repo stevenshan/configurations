@@ -4,6 +4,9 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 EXPECT="password:"
 
 sshcommand="/usr/bin/mosh"
+if [ ! -f "$sshcommand" ]; then
+    sshcommand="ssh"
+fi
 
 sshhost="$($DIR/gethost "${@: -1}")"
 
@@ -22,7 +25,8 @@ fi
 num=$#
 commandargs="${@:1:$((num-1))}"
 
-if [ "$passwordIndex" != "0" ] && [ "$password" != "" ]; then
+if [ "$passwordIndex" != "0" ] && [ "$password" != "" ] && sshpass > /dev/null;
+then
     sshpass -p "$password" "$sshcommand" $commandargs "$sshhost"
 else
     if [ "$commandargs" == "" ]; then
