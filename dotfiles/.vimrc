@@ -1,3 +1,8 @@
+set undofile
+set noswapfile
+set undodir=~/.vim/undodir
+set wildmenu
+
 set nocompatible
 set number
 set ruler
