@@ -25,13 +25,20 @@ fi
 num=$#
 commandargs="${@:1:$((num-1))}"
 
-if [ "$passwordIndex" != "0" ] && [ "$password" != "" ] && sshpass > /dev/null;
-then
-    sshpass -p "$password" "$sshcommand" $commandargs "$sshhost"
-else
-    if [ "$commandargs" == "" ]; then
-        "$sshcommand" "$sshhost"
+function run {
+    if [ "$passwordIndex" != "0" ] && [ "$password" != "" ] && sshpass > /dev/null;
+    then
+        sshpass -p "$password" "$1" $commandargs "$sshhost"
     else
-        "$sshcommand" "$commandargs" "$sshhost"
+        if [ "$commandargs" == "" ]; then
+            "$1" "$sshhost"
+        else
+            "$1" "$commandargs" "$sshhost"
+        fi
     fi
+}
+
+run $sshcommand
+if [ "$?" == "10" ]; then
+    run "/usr/bin/ssh"
 fi

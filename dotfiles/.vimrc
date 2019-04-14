@@ -15,6 +15,11 @@ set tabstop=4
 set shiftwidth=4
 set smarttab
 
+" two space indent for some file types
+autocmd FileType html setlocal ts=2 sts=2 sw=2
+autocmd FileType ruby setlocal ts=2 sts=2 sw=2
+autocmd FileType javascript setlocal ts=2 sts=2 sw=2
+
 syntax on " syntax highlighting
 
 " Strip whitespace from end of lines when writing file
