@@ -1,7 +1,7 @@
 #!/bin/bash
 
 opencommand="pdfopen -r --viewer evince"
-compilecommand="xelatex -interaction batchmode"
+compilecommand="xelatex --shell-escape -interaction batchmode"
 dir="/home/shans/Documents/LaTeX/"
 vim="vim"
 
@@ -113,13 +113,14 @@ elif [ "$i" == "preview" ]; then
 		echo "Project does not exist"
 	else
 		cd "$2"
-		find . | grep -E "(.*tex|.*cls)$" | entr sh -c "${self_path} work $2"
+		find . | grep -E "(.*tex|.*cls)$" | entr sh -c "${self_path} work $2 > /dev/null 2>&1"
 	fi
 elif [ "$i" == "work" ]; then
 	if [ ! -d "$2" ]; then
 		echo "Project does not exist"
 	else
 		cd "$2"
+        rm -f *.pdf
 		$compilecommand "$2.tex"
 		$opencommand "$2.pdf"
 	fi
@@ -128,6 +129,7 @@ elif [ "$i" == "view" ]; then
 		echo "Project does not exist"
 	else
 		cd "$2"
+        rm -f *.pdf
 		$compilecommand "$2.tex"
 		if [ ! -f "$2.pdf" ]; then
 			echo "File does not exist"

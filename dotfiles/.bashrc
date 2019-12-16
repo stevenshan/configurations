@@ -145,7 +145,7 @@ export TERM=xterm-256color
 # add downloaded apps directory
 source ${HOME}/configurations/Applications/config
 
-export GOPATH=${HOME}/go
+#export GOPATH=${HOME}/go
 export PATH=${GOPATH}/bin:$PATH
 
 alias mlenv="(nvidia-docker start mlenv ||
@@ -155,3 +155,8 @@ alias mlenv="(nvidia-docker start mlenv ||
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+export SMLROOT=$HOME/bin
+
+alias sl='echo "fuck you eric and nick"'
+
