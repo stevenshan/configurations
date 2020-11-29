@@ -1,3 +1,6 @@
+set autoindent
+set smartindent
+
 set undofile
 set noswapfile
 set undodir=~/.vim/undodir
@@ -15,9 +18,9 @@ set showmatch " highlight matching braces
 set equalalways " split windows equal size
 
 set expandtab
-set tabstop=4
-set shiftwidth=4
-set softtabstop=4
+set tabstop=2
+set shiftwidth=2
+set softtabstop=2
 
 syntax on " syntax highlighting
 
@@ -71,6 +74,8 @@ call vundle#begin()
 Plugin 'VundleVim/Vundle.vim'
 
 Plugin 'christoomey/vim-tmux-navigator'
+Plugin 'tpope/vim-fugitive'
+Plugin 'tpope/vim-vinegar'
 
 " All of your Plugins must be added before the following line
 call vundle#end()            " required

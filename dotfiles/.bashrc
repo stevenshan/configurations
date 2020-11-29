@@ -3,7 +3,8 @@
 # for examples
 
 # If not running interactively, don't do anything
-case $- in *i*) ;;
+case $- in
+    *i*) ;;
       *) return;;
 esac
 
@@ -104,6 +105,27 @@ if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases
 fi
 
+function cpp {
+  cat << EOF >> $1
+#include <iostream>
+#include <string>
+#include <unordered_set>
+#include <set>
+#include <map>
+#include <unordered_map>
+#include <vector>
+#include <algorithm>
+
+typedef long long ll;
+
+using namespace std;
+
+int main() {
+  return 0;
+}
+EOF
+}
+
 # enable programmable completion features (you don't need to enable
 # this, if it's already enabled in /etc/bash.bashrc and /etc/profile
 # sources /etc/bash.bashrc).
@@ -114,49 +136,5 @@ if ! shopt -oq posix; then
     . /etc/bash_completion
   fi
 fi
-
-###############################################################################
-
-function _update_ps1() {
-    PS1=$(powerline-shell $?)
-}
-
-if powerline-shell >> /dev/null; then
-    if [[ $TERM != linux && ! $PROMPT_COMMAND =~ _update_ps1 ]]; then
-        PROMPT_COMMAND="_update_ps1; $PROMPT_COMMAND"
-    fi
-fi
-
-# python virtual environment
-export WORKON_HOME=~/virtualenvs
-source /usr/local/bin/virtualenvwrapper.sh
-alias workoff="deactivate"
-
-alias gcc="gcc -Wall -Wextra -Wshadow -std=c99 -g"
-alias sml="rlwrap sml"
-alias open="xdg-open"
-alias rmate="ssh -R 52698:localhost:52698"
-alias python='rlwrap python3.6'
-alias ssh=ssh_
-
-# fix weird vim thing with tmux
-export TERM=xterm-256color
-
-# add downloaded apps directory
-source ${HOME}/configurations/Applications/config
-
-#export GOPATH=${HOME}/go
-export PATH=${GOPATH}/bin:$PATH
-
-alias mlenv="(nvidia-docker start mlenv ||
-              nvidia-docker run -it -p 8888:8888 --ipc=host --name=mlenv -v ${HOME}/Documents/docker_volumes/mlenv:/root -d ufoym/deepo:all-py36-jupyter) &&
-             nvidia-docker exec -it mlenv"
-
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-
-export SMLROOT=$HOME/bin
-
-alias sl='echo "fuck you eric and nick"'
+export VISUAL=vim
 
